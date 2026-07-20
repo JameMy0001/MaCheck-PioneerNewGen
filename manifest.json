@@ -1,0 +1,26 @@
+{
+  "name": "YaCheck - ยาเช็ค จัดการยาอัจฉริยะ",
+  "short_name": "YaCheck",
+  "description": "แอปจัดการยาและตรวจสอบยาตีกัน ใช้งานง่ายสำหรับทุกคน",
+  "start_url": "/yacheck/index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#133D33",
+  "background_color": "#FAF9F6",
+  "lang": "th",
+  "categories": ["health", "medical"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+/* ============================================
+   YaCheck Design System — CSS Custom Properties
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* ── Colors (Warm Eye-Care Light Gray & Slate) ── */
+  --color-bg: #F5F5F3;             /* Warm soft light gray background (reduces eye strain) */
+  --color-surface: #FFFFFF;        /* Pure white for clean card layouts */
+  --color-primary: #2B3E50;        /* Deep steel slate gray for premium contrast */
+  --color-primary-light: rgba(43, 62, 80, 0.08); /* Soft slate tint */
+  --color-primary-dark: #1A2836;   /* Dark charcoal */
+  --color-accent: #4A5568;         /* Medium slate/cool gray */
+  --color-accent-light: rgba(74, 85, 104, 0.08); /* Slate translucent tint */
+  --color-secondary: #64748B;      /* Muted slate gray for secondary labels */
+  --color-text: #1A202C;           /* Off-black/charcoal text (prevents glare) */
+  --color-text-secondary: #4A5568; /* Medium charcoal for body text */
+  --color-text-muted: #718096;     /* Soft grey for helper notes */
+  --color-border: #E2E8F0;         /* Light slate border */
+  --color-safe: #16A34A;           /* Calm green success status */
+  --color-safe-bg: rgba(22, 163, 74, 0.08);
+  --color-warning: #D97706;        /* Warm warning amber */
+  --color-warning-bg: rgba(217, 119, 6, 0.08);
+  --color-danger: #DC2626;         /* Soft red for drug interaction warnings */
+  --color-danger-bg: rgba(220, 38, 38, 0.08);
+  --color-taken: rgba(43, 62, 80, 0.08); /* Soft gray checked state background */
+
+  /* ── Shadows (Softer & more premium) ────── */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 16px 36px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
+
+  /* ── Spacing ────────────────────────────── */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  /* ── Sizing ─────────────────────────────── */
+  --touch-min: 56px;
+  --btn-height: 56px;
+  --nav-height: 80px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 26px;
+  --radius-full: 999px;
+  --max-width: 428px;
+
+  /* ── Font Scale ─────────────────────────── */
+  --font-scale: 1;
+
+  /* ── Transitions ────────────────────────── */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Font Scale Classes ───────────────────── */
+html.font-normal  { --font-scale: 1; }
+html.font-large   { --font-scale: 1.15; }
+html.font-xlarge  { --font-scale: 1.35; }

@@ -1,0 +1,37 @@
+# Operating system and editor files
+.DS_Store
+*.swp
+
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+Pods/
+
+# Build output and caches
+dist/
+build/
+.expo/
+.gradle/
+.cxx/
+.temp/
+DerivedData/
+*.tsbuildinfo
+
+# Deployment metadata
+.vercel/
+
+# Temporary working files
+tmp/
+
+# Generated application packages
+*.apk
+*.aab
+*.ipa
+*.keystore
+
+# Backup of the empty nested mobile repository metadata
+.mobile-git-backup/

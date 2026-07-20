@@ -1,0 +1,12 @@
+{
+  "aps": {
+    "alert": {
+      "title": "ข้อความใหม่จากผู้ดูแล",
+      "body": "นี่คือข้อความทดสอบการแจ้งเตือนจากผู้ดูแล"
+    },
+    "sound": "default"
+  },
+  "type": "caregiver_message",
+  "messageId": "simulator-notification-test",
+  "url": "/caregiver-messages"
+}
