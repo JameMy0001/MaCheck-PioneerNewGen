@@ -374,7 +374,7 @@ export async function fetchUserQuota() {
   }
   try {
     const store = useAppStore.getState();
-    const cleanUsername = (store.profile.username || store.profile.displayName || '').replace(/^@/, '').trim() || 'dev_01';
+    const cleanUsername = (store.profile.username || store.profile.displayName || 'dev_01').replace(/^@/, '').trim().toLowerCase();
 
     // 1. Try RPC check_user_agent_quota_by_handle passing cleanUsername
     const { data: handleData, error: handleErr } = await supabase.rpc('check_user_agent_quota_by_handle', {
@@ -383,25 +383,41 @@ export async function fetchUserQuota() {
 
     if (!handleErr && handleData) {
       const res = Array.isArray(handleData) ? handleData[0] : handleData;
-      if (res && res.current_tier) {
+      if (res && res.current_tier && res.current_tier !== 'free') {
         return res;
       }
     }
 
-    // 2. Try RPC check_user_agent_quota (by auth.uid())
-    const { data: rpcData, error: rpcErr } = await supabase.rpc('check_user_agent_quota');
-    if (!rpcErr && rpcData) {
-      const res = Array.isArray(rpcData) ? rpcData[0] : rpcData;
-      if (res && res.current_tier) {
-        return res;
+    // 2. Query app_profiles directly via session user_id
+    const { data: sessionData } = await supabase.auth.getSession();
+    const currentUid = sessionData.session?.user?.id;
+
+    if (currentUid) {
+      const { data: profileRow } = await supabase
+        .from('app_profiles')
+        .select('subscription_tier, custom_quota_override, role')
+        .eq('user_id', currentUid)
+        .maybeSingle();
+
+      if (profileRow) {
+        const tier = profileRow.subscription_tier || (profileRow.role === 'admin' ? 'admin' : 'free');
+        const isUnlimited = tier === 'admin' || profileRow.role === 'admin';
+        const maxQuota = profileRow.custom_quota_override ?? (tier === 'pro' ? 50 : tier === 'family' ? 200 : isUnlimited ? 9999 : 7);
+
+        return {
+          allowed: true,
+          quota_remaining: isUnlimited ? 9999 : maxQuota,
+          current_tier: tier,
+          max_weekly_quota: maxQuota,
+        };
       }
     }
 
-    // 3. Fallback: Query account_handles by username handle to resolve user_id directly
+    // 3. Query account_handles by username handle to resolve user_id directly
     const { data: handleRow } = await supabase
       .from('account_handles')
       .select('user_id')
-      .eq('handle', cleanUsername)
+      .ilike('handle', cleanUsername)
       .maybeSingle();
 
     const uid = handleRow?.user_id;
@@ -424,6 +440,20 @@ export async function fetchUserQuota() {
           max_weekly_quota: maxQuota,
         };
       }
+    }
+
+    // 4. Try RPC check_user_agent_quota
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('check_user_agent_quota');
+    if (!rpcErr && rpcData) {
+      const res = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+      if (res && res.current_tier) {
+        return res;
+      }
+    }
+
+    if (!handleErr && handleData) {
+      const res = Array.isArray(handleData) ? handleData[0] : handleData;
+      if (res) return res;
     }
 
     return { allowed: true, quota_remaining: 7, current_tier: 'free', max_weekly_quota: 7 };
