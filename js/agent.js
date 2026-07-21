@@ -488,22 +488,6 @@ const Agent = {
 ${this.state.systemPrompt}
 
 ตอบคำถามของคนไข้ด้านล่างนี้ โดยให้ข้อมูลที่เป็นจริงตามประวัติ และเน้นความปลอดภัยเป็นสำคัญที่สุด ห้ามจ่ายยาหรือสั่งลด/เพิ่มยาเองโดยเด็ดขาด ตอบเป็นภาษาไทยอย่างเป็นกันเองและสุภาพ`;
-
-      const apiMessages = [
-        { role: 'system', content: contextPrompt }
-      ];
-
-      // ดึงประวัติการคุย 4 ข้อความหลังสุด
-      const recentMsgs = this.state.messages.slice(-5, -1);
-      recentMsgs.forEach(m => {
-        apiMessages.push({
-          role: m.sender === 'user' ? 'user' : 'assistant',
-          content: m.text
-        });
-      });
-
-      apiMessages.push({ role: 'user', content: text });
-
       // โหลด LangChain แบบไดนามิกผ่าน ESM CDN
       console.log('[LangChain] กำลังโหลดไลบรารีผ่าน ESM CDN...');
       const { ChatOpenAI } = await import("https://esm.sh/@langchain/openai");
