@@ -141,53 +141,7 @@ const Agent = {
     return conflicts;
   },
 
-  // ฟังก์ชันส่วนกลางสำหรับเรียกใช้ LLM ผ่าน Vercel Serverless Proxy (และ Fallback Direct call)
-  async fetchLLM(payload) {
-    // 1. ลองเรียกผ่าน Vercel Serverless Proxy (/api/chat) ก่อนเพื่อเลี่ยง CORS
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: payload.model,
-          messages: payload.messages,
-          temperature: payload.temperature,
-          max_tokens: payload.max_tokens,
-          apiKey: this.state.nvidiaApiKey
-        })
-      });
-      if (response.ok) {
-        return await response.json();
-      }
-      if (response.status !== 404) {
-        throw new Error('Proxy returned status ' + response.status);
-      }
-    } catch (e) {
-      console.warn('[AI Agent] เรียกผ่าน Proxy /api/chat ล้มเหลว (อาจไม่ได้รันผ่าน Vercel):', e);
-    }
 
-    // 2. ลองเรียกตรงไปที่ NVIDIA NIM API (จะผ่านเฉพาะเมื่อเบราว์เซอร์ปิด CORS หรือรันข้ามระบบ)
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.state.nvidiaApiKey}`
-      },
-      body: JSON.stringify({
-        model: payload.model,
-        messages: payload.messages,
-        temperature: payload.temperature,
-        max_tokens: payload.max_tokens
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('NVIDIA API direct call failed with status ' + response.status);
-    }
-    return await response.json();
-  },
 
   // เริ่มรันวิเคราะห์ AI (State Machine Animation)
   startRun() {
@@ -242,13 +196,38 @@ const Agent = {
 คำสั่งควบคุม AI:
 กรุณาเขียนบทวิเคราะห์สุขภาพและความปลอดภัยของการใช้ยาโดยสรุปแบบส่วนบุคคลของคนไข้คนนี้ ความยาว 2-3 ประโยคสั้นๆ เน้นความอบอุ่น เป็นกันเอง ปลอดภัย และชี้ให้เห็นจุดเสี่ยงสำคัญ (เช่น การลืมทานยา หรือยาตีกันถ้ามี) ตอบเป็นภาษาไทยอย่างสุภาพ ห้ามแนะนำให้เริ่มทานยาตัวใหม่ที่ไม่เกี่ยวข้องด้วยตนเอง`;
 
-            const resJson = await this.fetchLLM({
-              model: this.state.selectedModel,
-              messages: [{ role: 'user', content: contextPrompt }],
+            // โหลด LangChain แบบไดนามิกผ่าน ESM CDN
+            console.log('[LangChain] กำลังโหลดไลบรารีผ่าน ESM CDN...');
+            const { ChatOpenAI } = await import("https://esm.sh/@langchain/openai");
+            const { HumanMessage } = await import("https://esm.sh/@langchain/core/messages");
+
+            const chatModel = new ChatOpenAI({
+              openAIApiKey: this.state.nvidiaApiKey,
+              modelName: this.state.selectedModel,
               temperature: this.state.temperature,
-              max_tokens: 300
+              maxTokens: 300,
+              configuration: {
+                baseURL: "https://integrate.api.nvidia.com/v1"
+              },
+              customFetch: async (url, options) => {
+                const body = JSON.parse(options.body);
+                return await fetch('/api/chat', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    model: body.model,
+                    messages: body.messages,
+                    temperature: body.temperature,
+                    max_tokens: body.max_tokens,
+                    apiKey: this.state.nvidiaApiKey
+                  })
+                });
+              }
             });
-            personalizedAdvice = resJson.choices[0].message.content;
+
+            console.log('[LangChain Agent] เรียกใช้ระบบวิเคราะห์ข้อมูลคนไข้...');
+            const response = await chatModel.invoke([new HumanMessage(contextPrompt)]);
+            personalizedAdvice = response.content;
           } catch (e) {
             console.warn('[AI Agent] เรียก NVIDIA NIM สำหรับรายงานส่วนบุคคลล้มเหลว:', e);
             personalizedAdvice = 'วิเคราะห์ประวัติทั่วไปสำเร็จ: คนไข้มีรายการยาในตู้ ' + snapshot.medicines.length + ' รายการ ความสม่ำเสมอทานยา ' + adherence.rate + '% (ระบบเชื่อมต่อ AI มีความล่าช้าชั่วคราว)';
@@ -525,13 +504,54 @@ ${this.state.systemPrompt}
 
       apiMessages.push({ role: 'user', content: text });
 
-      const resData = await this.fetchLLM({
-        model: this.state.selectedModel,
-        messages: apiMessages,
-        temperature: this.state.temperature,
-        max_tokens: 1024
+      // โหลด LangChain แบบไดนามิกผ่าน ESM CDN
+      console.log('[LangChain] กำลังโหลดไลบรารีผ่าน ESM CDN...');
+      const { ChatOpenAI } = await import("https://esm.sh/@langchain/openai");
+      const { SystemMessage, HumanMessage, AIMessage } = await import("https://esm.sh/@langchain/core/messages");
+
+      const langchainMessages = [
+        new SystemMessage(contextPrompt)
+      ];
+
+      // ดึงประวัติการคุย 4 ข้อความหลังสุด
+      const recentMsgs = this.state.messages.slice(-5, -1);
+      recentMsgs.forEach(m => {
+        if (m.sender === 'user') {
+          langchainMessages.push(new HumanMessage(m.text));
+        } else {
+          langchainMessages.push(new AIMessage(m.text));
+        }
       });
-      const reply = resData.choices[0].message.content;
+
+      langchainMessages.push(new HumanMessage(text));
+
+      const chatModel = new ChatOpenAI({
+        openAIApiKey: this.state.nvidiaApiKey,
+        modelName: this.state.selectedModel,
+        temperature: this.state.temperature,
+        maxTokens: 1024,
+        configuration: {
+          baseURL: "https://integrate.api.nvidia.com/v1"
+        },
+        customFetch: async (url, options) => {
+          const body = JSON.parse(options.body);
+          return await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: body.model,
+              messages: body.messages,
+              temperature: body.temperature,
+              max_tokens: body.max_tokens,
+              apiKey: this.state.nvidiaApiKey
+            })
+          });
+        }
+      });
+
+      console.log('[LangChain Agent] เรียกส่งคำปรึกษาผ่าน LangChain...');
+      const response = await chatModel.invoke(langchainMessages);
+      const reply = response.content;
 
       this.state.messages.push({ sender: 'agent', text: reply });
       this.render();

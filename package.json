@@ -2,6 +2,7 @@
   "name": "yacheck-prototype",
   "version": "1.0.0",
   "description": "YaCheck Web Prototype with LangChain integration",
+  "type": "module",
   "main": "index.html",
   "dependencies": {
     "@langchain/core": "^0.2.0",
