@@ -184,12 +184,60 @@ export async function deleteClinicalRecord(table: 'medications' | 'drug_interact
   if (error) throw new Error(error.message);
 }
 
-export async function updateUserSubscription(targetUserId: string, newTier: string, customQuota: number | null = null) {
-  const { data, error } = await supabase.rpc('admin_update_user_subscription', {
-    p_target_user_id: targetUserId,
-    p_new_tier: newTier,
-    p_quota_override: customQuota,
-  });
-  if (error) throw new Error(error.message);
+export async function updateUserSubscription(targetUserIdOrHandle: string, newTier: string, customQuota: number | null = null) {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserIdOrHandle);
+
+  if (isUuid) {
+    const { data, error } = await supabase.rpc('admin_update_user_subscription', {
+      p_target_user_id: targetUserIdOrHandle,
+      p_new_tier: newTier,
+      p_quota_override: customQuota,
+    });
+    if (!error) return data;
+  }
+
+  // 1. Resolve user_id from account_handles or profiles
+  let targetId: string | null = null;
+  const { data: handleRow } = await supabase
+    .from('account_handles')
+    .select('user_id')
+    .eq('handle', targetUserIdOrHandle)
+    .maybeSingle();
+
+  if (handleRow?.user_id) {
+    targetId = handleRow.user_id;
+  } else {
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('id')
+      .or(`username.eq.${targetUserIdOrHandle},id.eq.${targetUserIdOrHandle}`)
+      .maybeSingle();
+    targetId = profileRow?.id ?? null;
+  }
+
+  const finalUid = targetId || targetUserIdOrHandle;
+
+  // 2. Upsert directly to profiles table
+  const { data, error } = await supabase.from('profiles').upsert(
+    {
+      id: finalUid,
+      subscription_tier: newTier,
+      custom_quota_override: customQuota,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'id' }
+  );
+
+  if (error) {
+    // 3. Fallback to RPC by handle
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_update_user_subscription_by_handle', {
+      p_target_handle: targetUserIdOrHandle,
+      p_new_tier: newTier,
+      p_quota_override: customQuota,
+    });
+    if (rpcErr) throw new Error(rpcErr.message || error.message);
+    return rpcData;
+  }
+
   return data;
 }

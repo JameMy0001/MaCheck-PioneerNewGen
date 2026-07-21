@@ -45,20 +45,16 @@ export function Accounts() {
   };
 
   const handleSaveSubscription = async (account: AccountSummary) => {
-    const key = account.user_id || account.handle;
-    const newTier = editingTiers[key] || 'free';
-    const quotaStr = editingQuotas[key];
+    const identifier = account.user_id || account.handle;
+    const newTier = editingTiers[identifier] || editingTiers[account.handle] || 'free';
+    const quotaStr = editingQuotas[identifier] ?? editingQuotas[account.handle];
     const customQuota = quotaStr && !isNaN(Number(quotaStr)) ? Number(quotaStr) : null;
 
     setError('');
     setSuccessMsg('');
     try {
-      if (account.user_id) {
-        await updateUserSubscription(account.user_id, newTier, customQuota);
-        setSuccessMsg(`อัปเดตสิทธิ์ AI Care Agent ของ @${account.handle} เป็น "${newTier.toUpperCase()}" เรียบร้อยแล้ว!`);
-      } else {
-        setError(`ไม่สามารถระบุ User ID ของ @${account.handle}`);
-      }
+      await updateUserSubscription(identifier, newTier, customQuota);
+      setSuccessMsg(`อัปเดตสิทธิ์ AI Care Agent ของ @${account.handle} เป็น "${newTier.toUpperCase()}" เรียบร้อยแล้ว!`);
     } catch (err: any) {
       setError(err.message || 'ไม่สามารถอัปเดตสิทธิ์ได้');
     }
