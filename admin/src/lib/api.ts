@@ -188,69 +188,50 @@ export async function updateUserSubscription(targetUserIdOrHandle: string, newTi
   const cleanHandle = targetUserIdOrHandle.replace(/^@/, '').trim();
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanHandle);
 
-  // 1. If it's a valid UUID, update directly by ID
-  if (isUuid) {
-    const { error } = await supabase.from('profiles').update({
+  let targetUserId = isUuid ? cleanHandle : null;
+
+  if (!targetUserId) {
+    // 1. Resolve user_id from account_handles table
+    const { data: handleRow } = await supabase
+      .from('account_handles')
+      .select('user_id')
+      .eq('handle', cleanHandle)
+      .maybeSingle();
+
+    if (handleRow?.user_id) {
+      targetUserId = handleRow.user_id;
+    }
+  }
+
+  if (targetUserId) {
+    // 2. Update app_profiles table (the actual profile table in Supabase)
+    const { error: appErr } = await supabase.from('app_profiles').update({
       subscription_tier: newTier,
       custom_quota_override: customQuota,
       updated_at: new Date().toISOString(),
-    }).eq('id', cleanHandle);
+    }).eq('user_id', targetUserId);
 
-    if (!error) return { success: true };
+    if (!appErr) return { success: true };
   }
 
-  // 2. Try looking up user_id from account_handles table
-  const { data: handleRow } = await supabase
-    .from('account_handles')
-    .select('user_id')
-    .eq('handle', cleanHandle)
-    .maybeSingle();
-
-  if (handleRow?.user_id) {
-    const { error: updateErr } = await supabase.from('profiles').update({
-      subscription_tier: newTier,
-      custom_quota_override: customQuota,
-      updated_at: new Date().toISOString(),
-    }).eq('id', handleRow.user_id);
-
-    if (!updateErr) return { success: true };
-  }
-
-  // 3. Try looking up profile by username column
-  const { data: profileRow } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('username', cleanHandle)
-    .maybeSingle();
-
-  if (profileRow?.id) {
-    const { error: updateErr } = await supabase.from('profiles').update({
-      subscription_tier: newTier,
-      custom_quota_override: customQuota,
-      updated_at: new Date().toISOString(),
-    }).eq('id', profileRow.id);
-
-    if (!updateErr) return { success: true };
-  }
-
-  // 4. Try updating by username directly in profiles table
-  const { error: directErr } = await supabase.from('profiles').update({
+  // 3. Fallback: try updating profiles table if it exists
+  const { error: profileErr } = await supabase.from('profiles').update({
     subscription_tier: newTier,
     custom_quota_override: customQuota,
     updated_at: new Date().toISOString(),
-  }).eq('username', cleanHandle);
+  }).or(`id.eq.${cleanHandle},username.eq.${cleanHandle}`);
 
-  if (!directErr) return { success: true };
+  if (!profileErr) return { success: true };
 
-  // 5. Try calling existing RPC function admin_update_user_subscription if available
+  // 4. Fallback: call RPC function admin_update_user_subscription if available
   const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_update_user_subscription', {
-    p_target_user_id: handleRow?.user_id || profileRow?.id || cleanHandle,
+    p_target_user_id: targetUserId || cleanHandle,
     p_new_tier: newTier,
     p_quota_override: customQuota,
   });
 
   if (rpcErr) {
-    throw new Error(`ไม่สามารถอัปเดตสิทธิ์ของ @${cleanHandle}: ${directErr.message || rpcErr.message}`);
+    throw new Error(`ไม่สามารถอัปเดตสิทธิ์ของ @${cleanHandle}: ${rpcErr.message}`);
   }
 
   return rpcData;
