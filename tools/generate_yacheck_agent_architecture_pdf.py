@@ -44,10 +44,10 @@ WHITE = colors.white
 
 
 def register_fonts() -> None:
-    regular = Path("/System/Library/Fonts/Supplemental/Tahoma.ttf")
-    bold = Path("/System/Library/Fonts/Supplemental/Tahoma Bold.ttf")
+    regular = ROOT / "fonts" / "Sarabun-Regular.ttf"
+    bold = ROOT / "fonts" / "Sarabun-Bold.ttf"
     if not regular.exists() or not bold.exists():
-        raise FileNotFoundError("Tahoma fonts are required to render Thai text")
+        raise FileNotFoundError("Sarabun fonts are required to render Thai text")
     pdfmetrics.registerFont(TTFont("Thai", str(regular)))
     pdfmetrics.registerFont(TTFont("Thai-Bold", str(bold)))
     pdfmetrics.registerFontFamily("Thai", normal="Thai", bold="Thai-Bold")
