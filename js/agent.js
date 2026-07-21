@@ -18,6 +18,7 @@ const Agent = {
     messages: [
       { sender: 'agent', text: 'สวัสดีครับ ผมคือผู้ช่วย AI เช็คสุขภาพและยา (YaCheck Care Agent) ยินดีต้อนรับเข้าสู่ระบบทดลองเล่นครับ คุณสามารถกดเริ่มวิเคราะห์ประวัติสุขภาพ หรือพิมพ์คุยสอบถามข้อมูลเกี่ยวกับยาและร่างกายของคุณได้จากกล่องข้อความด้านล่างครับ' }
     ],
+    isChatLoading: false,
     lastRunSnapshot: null,
     lastRunSummary: null,
     previousSummary: null,
@@ -446,10 +447,11 @@ const Agent = {
 
   // พิมพ์ตั้งคำถามจำลองและให้ผู้ช่วยจำลองวิเคราะห์ตอบสด
   async askQuestion(text) {
-    if (!text.trim()) return;
+    if (!text.trim() || this.state.isChatLoading) return;
 
     // เพิ่มข้อความคนไข้
     this.state.messages.push({ sender: 'user', text });
+    this.state.isChatLoading = true;
     this.render();
 
     // ดึง Snapshot เพื่อนำมาตอบจริง
@@ -555,8 +557,9 @@ ${this.state.systemPrompt}
       }
 
       this.state.messages.push({ sender: 'agent', text: reply });
-      this.render();
     } finally {
+      this.state.isChatLoading = false;
+      this.render();
       // เลื่อนกล่องแชทไปล่าสุด
       setTimeout(() => {
         const chatBody = document.querySelector('.agent-chat-body');
@@ -792,6 +795,12 @@ ${this.state.systemPrompt}
 
     // แผงกล่องแชททดสอบ Playground
     let chatHtml = `
+      <style>
+        @keyframes typingBounce {
+          0%, 80%, 100% { transform: translateY(0); }
+          40% { transform: translateY(-5px); }
+        }
+      </style>
       <div class="agent-chat-container card" style="padding:16px; margin-top:var(--space-xl); border-radius:var(--radius-lg); background:var(--color-surface); border:1.5px solid var(--color-border); box-shadow:var(--shadow-md);">
         <div style="display:flex; align-items:center; gap:8px; border-bottom:1.5px solid var(--color-border); padding-bottom:10px; margin-bottom:12px;">
           <div style="color:var(--color-primary);">${Utils.getIconSvg('sparkles', 'icon-md')}</div>
@@ -810,11 +819,24 @@ ${this.state.systemPrompt}
               </div>
             </div>
           `).join('')}
+          
+          ${this.state.isChatLoading ? `
+            <div class="chat-bubble-wrapper" style="display:flex; justify-content:flex-start; animation: fadeIn 0.3s ease;">
+              <div class="chat-bubble bubble-agent" style="max-width:85%; padding:10px 14px; border-radius:18px; font-size:0.92rem; background-color: var(--color-surface); color:var(--color-text); border-top-left-radius:4px; border:1px solid var(--color-border); box-shadow:var(--shadow-sm); display:flex; align-items:center; gap:8px;">
+                <div class="typing-indicator" style="display:flex; gap:4px; align-items:center; height:8px;">
+                  <span class="dot" style="width:6px; height:6px; background-color:var(--color-primary); border-radius:50%; display:inline-block; animation: typingBounce 1.4s infinite ease-in-out both; animation-delay: 0s;"></span>
+                  <span class="dot" style="width:6px; height:6px; background-color:var(--color-primary); border-radius:50%; display:inline-block; animation: typingBounce 1.4s infinite ease-in-out both; animation-delay: 0.2s;"></span>
+                  <span class="dot" style="width:6px; height:6px; background-color:var(--color-primary); border-radius:50%; display:inline-block; animation: typingBounce 1.4s infinite ease-in-out both; animation-delay: 0.4s;"></span>
+                </div>
+                <span class="text-secondary" style="font-size:0.8rem; font-family:'Prompt',sans-serif; margin-left:4px;">ผู้ช่วย AI กำลังวิเคราะห์...</span>
+              </div>
+            </div>
+          ` : ''}
         </div>
 
         <form onsubmit="Agent.handleChatSubmit(event)" style="display:flex; gap:8px;">
-          <input type="text" id="agent-chat-input" placeholder="พิมพ์ถามผู้ช่วย AI... เช่น 'ฉันแพ้ยาอะไร?', 'ยาในตู้มีอะไรบ้าง?'" required style="flex:1; height:42px; border:1.5px solid var(--color-border); border-radius:var(--radius-md); padding:0 12px; font-size:0.95rem; background-color:var(--color-bg); color:var(--color-text);">
-          <button type="submit" class="btn btn-primary" style="height:42px; width:60px; display:inline-flex; align-items:center; justify-content:center; padding:0; border-radius:var(--radius-md);">
+          <input type="text" id="agent-chat-input" placeholder="${this.state.isChatLoading ? 'กรุณารอการประมวลผล...' : 'พิมพ์ถามผู้ช่วย AI... เช่น \'ฉันแพ้ยาอะไร?\''}" required ${this.state.isChatLoading ? 'disabled' : ''} style="flex:1; height:42px; border:1.5px solid var(--color-border); border-radius:var(--radius-md); padding:0 12px; font-size:0.95rem; background-color:var(--color-bg); color:var(--color-text); opacity: ${this.state.isChatLoading ? '0.6' : '1'};">
+          <button type="submit" class="btn btn-primary" ${this.state.isChatLoading ? 'disabled' : ''} style="height:42px; width:60px; display:inline-flex; align-items:center; justify-content:center; padding:0; border-radius:var(--radius-md); opacity: ${this.state.isChatLoading ? '0.6' : '1'};">
             ส่ง
           </button>
         </form>
