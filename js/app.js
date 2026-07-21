@@ -62,6 +62,11 @@ const App = {
       // เริ่มต้นเชื่อมต่อฐานข้อมูลออฟไลน์ IndexedDB
       await DB.init();
 
+      // เริ่มต้นตั้งค่า Supabase
+      if (typeof SupabaseService !== 'undefined') {
+        SupabaseService.init();
+      }
+
       // ดึงข้อมูลจากฐานข้อมูลมาใส่ในเมมโมรี่แอป
       await this.loadState();
     } catch (e) {
@@ -182,8 +187,8 @@ const App = {
       case 'cabinet':
         if (typeof Cabinet !== 'undefined' && Cabinet.render) Cabinet.render();
         break;
-      case 'network':
-        if (typeof Network !== 'undefined' && Network.render) Network.render();
+      case 'safety':
+        if (typeof Safety !== 'undefined' && Safety.render) Safety.render();
         break;
       case 'food-clash':
         if (typeof FoodClash !== 'undefined' && FoodClash.render) FoodClash.render();
@@ -193,6 +198,9 @@ const App = {
         break;
       case 'settings':
         if (typeof Settings !== 'undefined' && Settings.render) Settings.render();
+        break;
+      case 'agent':
+        if (typeof Agent !== 'undefined' && Agent.render) Agent.render();
         break;
       default:
         break;
@@ -280,8 +288,30 @@ const App = {
           await DB.put('interactions', copy);
         }
       }
+      
+      // เรียกซิงค์ข้อมูลขึ้น Supabase (ถ้ามีเซสชันอยู่)
+      await this.syncToSupabase();
     } catch (e) {
       console.warn('[DB] เกิดความล้มเหลวในการบันทึกข้อมูลลง IndexedDB:', e);
+    }
+  },
+
+  async syncToSupabase() {
+    if (this._isSyncing) return;
+    if (typeof SupabaseService === 'undefined') return;
+    
+    const session = await SupabaseService.getSession();
+    if (!session) return;
+    
+    this._isSyncing = true;
+    try {
+      console.log('[App] กำลังซิงค์ข้อมูลไปยัง Supabase...');
+      await SupabaseService.pushYaCheckSnapshot();
+      console.log('[App] ซิงค์ข้อมูลสำเร็จ');
+    } catch (e) {
+      console.warn('[App] ซิงค์ข้อมูลกับ Supabase ล้มเหลว:', e);
+    } finally {
+      this._isSyncing = false;
     }
   },
 
@@ -375,6 +405,40 @@ const App = {
         MedicineDB.interactions.push(i);
       }
     });
+
+    // ดึงสถานะโปรไฟล์ล่าสุดจาก Supabase (ถ้าล็อกอินทิ้งไว้)
+    if (typeof SupabaseService !== 'undefined') {
+      try {
+        const session = await SupabaseService.getSession();
+        if (session) {
+          console.log('[App] พบการเข้าสู่ระบบ Supabase ค้างไว้ กำลังซิงค์ข้อมูลล่าสุด...');
+          const remoteState = await SupabaseService.pullYaCheckSnapshot();
+          if (remoteState) {
+            this.state.currentUser = session.user.user_metadata?.username || session.user.email?.split('@')[0];
+            this.state.currentRole = remoteState.currentRole;
+            this.state.user.name = remoteState.user.name;
+            this.state.user.diseases = remoteState.user.diseases;
+            this.state.user.allergies = remoteState.user.allergies;
+            this.state.myMedicines = remoteState.myMedicines;
+            this.state.todayLog = remoteState.todayLog;
+            this.state.soundEnabled = remoteState.soundEnabled;
+            this.state.allergyLog = remoteState.user.allergies.map((a, index) => ({
+              id: `allergy_${index}`,
+              medicineName: a,
+              severity: 'moderate',
+              timestamp: Date.now()
+            }));
+            
+            // บันทึกเฉพาะข้อมูล IndexedDB ในเครื่องโดยตรงเพื่อกันหลูปซิงค์ซ้ำ
+            this._isSyncing = true;
+            await this.saveState();
+            this._isSyncing = false;
+          }
+        }
+      } catch (e) {
+        console.warn('[App] ดึงข้อมูลเริ่มต้นจาก Supabase ล้มเหลว:', e);
+      }
+    }
   },
 
   loadStateFromLocalStorageFallback() {
@@ -925,11 +989,20 @@ const App = {
     this.navigate('dashboard');
   },
 
-  logout() {
+  async logout() {
     if (confirm('คุณต้องการออกจากระบบใช่หรือไม่?')) {
       const state = this.getState();
       state.currentRole = null;
       state.currentUser = null;
+      
+      if (typeof SupabaseService !== 'undefined') {
+        try {
+          await SupabaseService.logout();
+        } catch (e) {
+          console.warn('Supabase logout failed:', e);
+        }
+      }
+      
       this.setState(state);
       this.navigate('login');
     }
@@ -1008,7 +1081,7 @@ const App = {
     }
   },
 
-  handleSignIn(event) {
+  async handleSignIn(event) {
     if (event) event.preventDefault();
     const usernameInput = document.getElementById('signin-username');
     const passwordInput = document.getElementById('signin-password');
@@ -1022,119 +1095,166 @@ const App = {
       return;
     }
 
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn ? submitBtn.textContent : 'เข้าสู่ระบบ';
+    if (submitBtn) {
+      submitBtn.textContent = 'กำลังเชื่อมต่อ Supabase...';
+      submitBtn.disabled = true;
+    }
+
+    // 1. ตรวจสอบบัญชีจำลองในเครื่องก่อน
     const accounts = this.state.accounts || [];
-    const user = accounts.find(acc => acc.username.toLowerCase() === username.toLowerCase());
+    const mockUser = accounts.find(acc => acc.username.toLowerCase() === username.toLowerCase());
 
-    if (user) {
-      if (user.password === password) {
-        this.state.currentUser = user.username;
-        this.state.currentRole = user.role;
-        this.state.user.name = user.username;
-        this.saveState();
-
-        Utils.showToast(`เข้าสู่ระบบสำเร็จในฐานะ: ${user.role === 'patient' ? 'คนไข้' : 'ผู้ดูแล'}`, 'success');
-        
-        usernameInput.value = '';
-        passwordInput.value = '';
-
-        this.navigate('dashboard');
-      } else {
-        Utils.showToast('รหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง', 'error');
+    if (mockUser && mockUser.password === password) {
+      this.state.currentUser = mockUser.username;
+      this.state.currentRole = mockUser.role;
+      this.state.user.name = mockUser.username;
+      await this.saveState();
+      
+      Utils.showToast(`เข้าสู่ระบบจำลองสำเร็จในฐานะ: ${mockUser.role === 'patient' ? 'คนไข้' : 'ผู้ดูแล'}`, 'success');
+      
+      usernameInput.value = '';
+      passwordInput.value = '';
+      if (submitBtn) {
+        submitBtn.textContent = originalBtnText;
+        submitBtn.disabled = false;
       }
-    } else {
-      Utils.showToast('ไม่พบบัญชีผู้ใช้นี้ กรุณาสมัครสมาชิกก่อนเข้าใช้งาน', 'warning');
+      this.navigate('dashboard');
+      return;
+    }
+
+    // 2. ล็อกอินผ่านเซิร์ฟเวอร์ Supabase จริง
+    try {
+      if (typeof SupabaseService === 'undefined' || !SupabaseService.client) {
+        throw new Error('ระบบเซิร์ฟเวอร์ Supabase ยังไม่พร้อมใช้งาน');
+      }
+
+      await SupabaseService.login(username.toLowerCase(), password);
+      Utils.showToast('เชื่อมต่อ Supabase สำเร็จ กำลังดึงประวัติของคุณ...', 'success');
+      
+      const remoteState = await SupabaseService.pullYaCheckSnapshot();
+      this._isSyncing = true; // ล็อคไม่ให้บันทึกข้อมูลทับทันที
+      
+      if (remoteState) {
+        this.state.currentUser = username;
+        this.state.currentRole = remoteState.currentRole;
+        this.state.user.name = remoteState.user.name;
+        this.state.user.diseases = remoteState.user.diseases;
+        this.state.user.allergies = remoteState.user.allergies;
+        this.state.myMedicines = remoteState.myMedicines;
+        this.state.todayLog = remoteState.todayLog;
+        this.state.soundEnabled = remoteState.soundEnabled;
+        this.state.allergyLog = remoteState.user.allergies.map((a, index) => ({
+          id: `allergy_${index}`,
+          medicineName: a,
+          severity: 'moderate',
+          timestamp: Date.now()
+        }));
+      } else {
+        // บัญชีผู้ใช้ใหม่บนเซิร์ฟเวอร์
+        this.state.currentUser = username;
+        this.state.currentRole = 'patient';
+        this.state.user.name = username;
+        this.state.user.diseases = [];
+        this.state.user.allergies = [];
+        this.state.myMedicines = [];
+        this.state.todayLog = { date: new Date().toISOString().split('T')[0], taken: {} };
+      }
+      
+      await this.saveState();
+      this._isSyncing = false;
+
+      Utils.showToast(`เข้าสู่ระบบ Supabase สำเร็จ! ยินดีต้อนรับคุณ ${username}`, 'success');
+      
+      usernameInput.value = '';
+      passwordInput.value = '';
+      
+      this.navigate('dashboard');
+    } catch (err) {
+      console.error(err);
+      Utils.showToast(err.message || 'ไม่พบบัญชีผู้ใช้นี้ หรือรหัสผ่านไม่ถูกต้อง', 'error');
+    } finally {
+      if (submitBtn) {
+        submitBtn.textContent = originalBtnText;
+        submitBtn.disabled = false;
+      }
     }
   },
 
-  handleSignUp(event) {
+  async handleSignUp(event) {
     if (event) event.preventDefault();
     const usernameInput = document.getElementById('signup-username');
     const passwordInput = document.getElementById('signup-password');
-    const emailInput = document.getElementById('signup-email');
-
-    if (!usernameInput || !passwordInput || !emailInput) return;
+    if (!usernameInput || !passwordInput) return;
 
     const username = usernameInput.value.trim();
     const password = passwordInput.value.trim();
-    const email = emailInput.value.trim();
     const role = this.signupRole || 'patient';
 
-    if (!username || !password || !email) {
+    if (!username || !password) {
       Utils.showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'warning');
       return;
     }
 
-    if (password.length < 6) {
-      Utils.showToast('รหัสผ่านต้องมีอย่างน้อย 6 หลัก', 'warning');
+    const handle = username.toLowerCase();
+    if (!/^[a-z][a-z0-9_]{5,23}$/.test(handle)) {
+      Utils.showToast('Username ต้องยาว 6-24 ตัวอักษร เริ่มด้วย a-z และห้ามมีอักษรพิเศษ (ยกเว้น _)', 'error', 4000);
       return;
     }
 
-    if (!email.toLowerCase().endsWith('@gmail.com')) {
-      Utils.showToast('กรุณากรอกอีเมล @gmail.com เท่านั้น', 'warning');
+    if (password.length < 10 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      Utils.showToast('รหัสผ่านต้องมีความยาวอย่างน้อย 10 ตัวอักษร และมีทั้งตัวอักษรและตัวเลข', 'error', 4000);
       return;
     }
 
-    const accounts = this.state.accounts || [];
-    const exists = accounts.some(acc => acc.username.toLowerCase() === username.toLowerCase());
-
-    if (exists) {
-      Utils.showToast('ชื่อผู้ใช้นี้ถูกใช้งานแล้ว', 'warning');
-      return;
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn ? submitBtn.textContent : 'สมัครสมาชิก';
+    if (submitBtn) {
+      submitBtn.textContent = 'กำลังเชื่อมต่อเซิร์ฟเวอร์ Supabase...';
+      submitBtn.disabled = true;
     }
 
-    this.tempSignUpData = { username, password, email, role };
+    try {
+      if (typeof SupabaseService === 'undefined' || !SupabaseService.client) {
+        throw new Error('ระบบเซิร์ฟเวอร์ Supabase ยังไม่พร้อมใช้งาน');
+      }
 
-    const otpEmailDisplay = document.getElementById('otp-modal-email');
-    if (otpEmailDisplay) {
-      otpEmailDisplay.textContent = email;
+      const result = await SupabaseService.register(handle, password);
+      
+      const recoveryCode = result.recovery_code || 'ยังไม่มีในระบบ';
+      alert(`⚠️ บันทึกรหัสกู้คืนของคุณเดี๋ยวนี้!\n\nรหัสกู้คืน: ${recoveryCode}\n\nระบบจะแสดงรหัสนี้เพียงครั้งเดียวเท่านั้น! ใช้เพื่อตั้งรหัสผ่านใหม่เมื่อคุณลืมรหัสผ่าน โปรดเก็บรักษาไว้อย่างปลอดภัยและห้ามเปิดเผยให้ผู้อื่นทราบ`);
+
+      this.state.currentUser = handle;
+      this.state.currentRole = role;
+      this.state.user.name = handle;
+      this.state.user.diseases = [];
+      this.state.user.allergies = [];
+      this.state.myMedicines = [];
+      this.state.todayLog = { date: new Date().toISOString().split('T')[0], taken: {} };
+      
+      await this.saveState();
+      
+      Utils.showToast('สมัครสมาชิกบน Supabase สำเร็จแล้ว!', 'success');
+      
+      usernameInput.value = '';
+      passwordInput.value = '';
+      
+      this.navigate('dashboard');
+    } catch (err) {
+      console.error(err);
+      Utils.showToast(err.message || 'ไม่สามารถลงทะเบียนได้สำเร็จ หรือชื่อผู้ใช้ถูกใช้งานแล้ว', 'error');
+    } finally {
+      if (submitBtn) {
+        submitBtn.textContent = originalBtnText;
+        submitBtn.disabled = false;
+      }
     }
-
-    const otpInput = document.getElementById('gmail-otp-input');
-    if (otpInput) {
-      otpInput.value = '';
-    }
-
-    Utils.showModal('gmail-otp-modal');
   },
 
   verifyOtpCode() {
-    const otpInput = document.getElementById('gmail-otp-input');
-    if (!otpInput) return;
-
-    const otpCode = otpInput.value.trim();
-
-    if (otpCode === '123456') {
-      if (!this.tempSignUpData) {
-        Utils.showToast('ข้อมูลการสมัครไม่สมบูรณ์ กรุณาสมัครใหม่อีกครั้ง', 'error');
-        Utils.hideModal('gmail-otp-modal');
-        return;
-      }
-
-      if (!this.state.accounts) {
-        this.state.accounts = [];
-      }
-      this.state.accounts.push(this.tempSignUpData);
-      this.state.currentUser = this.tempSignUpData.username;
-      this.state.currentRole = this.tempSignUpData.role;
-      this.state.user.name = this.tempSignUpData.username;
-      this.saveState();
-
-      Utils.hideModal('gmail-otp-modal');
-      Utils.showToast('สมัครสมาชิกและยืนยัน Gmail สำเร็จ!', 'success');
-
-      this.tempSignUpData = null;
-      
-      const suUser = document.getElementById('signup-username');
-      const suPass = document.getElementById('signup-password');
-      const suEmail = document.getElementById('signup-email');
-      if (suUser) suUser.value = '';
-      if (suPass) suPass.value = '';
-      if (suEmail) suEmail.value = '';
-
-      this.navigate('dashboard');
-    } else {
-      Utils.showToast('รหัส OTP ไม่ถูกต้อง กรุณาลองอีกครั้ง', 'error');
-    }
+    // Legacy simulated fallback method (Deprecated)
+    console.log('OTP verification deprecated. Using Supabase signup.');
   },
 
   // โหลดกฎปฏิกิริยายาและคลังยาส่วนตัวที่ผู้ใช้เพิ่มด้วยตัวเอง

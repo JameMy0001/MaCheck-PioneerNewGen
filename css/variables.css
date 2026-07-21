@@ -5,26 +5,26 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* ── Colors (Warm Eye-Care Light Gray & Slate) ── */
-  --color-bg: #F5F5F3;             /* Warm soft light gray background (reduces eye strain) */
+  /* ── Colors (Latest YaCheck Theme: Teal / Emerald Forest) ── */
+  --color-bg: #F6F8F7;             /* Soft light grayish-green background */
   --color-surface: #FFFFFF;        /* Pure white for clean card layouts */
-  --color-primary: #2B3E50;        /* Deep steel slate gray for premium contrast */
-  --color-primary-light: rgba(43, 62, 80, 0.08); /* Soft slate tint */
-  --color-primary-dark: #1A2836;   /* Dark charcoal */
-  --color-accent: #4A5568;         /* Medium slate/cool gray */
-  --color-accent-light: rgba(74, 85, 104, 0.08); /* Slate translucent tint */
-  --color-secondary: #64748B;      /* Muted slate gray for secondary labels */
-  --color-text: #1A202C;           /* Off-black/charcoal text (prevents glare) */
-  --color-text-secondary: #4A5568; /* Medium charcoal for body text */
-  --color-text-muted: #718096;     /* Soft grey for helper notes */
-  --color-border: #E2E8F0;         /* Light slate border */
-  --color-safe: #16A34A;           /* Calm green success status */
-  --color-safe-bg: rgba(22, 163, 74, 0.08);
-  --color-warning: #D97706;        /* Warm warning amber */
-  --color-warning-bg: rgba(217, 119, 6, 0.08);
-  --color-danger: #DC2626;         /* Soft red for drug interaction warnings */
-  --color-danger-bg: rgba(220, 38, 38, 0.08);
-  --color-taken: rgba(43, 62, 80, 0.08); /* Soft gray checked state background */
+  --color-primary: #216E63;        /* Deep Teal */
+  --color-primary-light: #E5F4F0;  /* Soft Teal tint */
+  --color-primary-dark: #174E47;    /* Dark Teal */
+  --color-accent: #F2A65A;         /* Warm Orange Accent */
+  --color-accent-light: rgba(242, 166, 90, 0.08); /* Accent translucent tint */
+  --color-secondary: #64716E;      /* Slate/greenish-gray for secondary labels */
+  --color-text: #17211F;           /* Off-black text */
+  --color-text-secondary: #64716E; /* Medium charcoal for body text */
+  --color-text-muted: #64716E;     /* Soft grey for helper notes */
+  --color-border: #DDE5E2;         /* Light grayish-teal border */
+  --color-safe: #067647;           /* Calm green success status */
+  --color-safe-bg: #D1FADF;
+  --color-warning: #9A6700;        /* Warning amber */
+  --color-warning-bg: #FFF3C4;
+  --color-danger: #B42318;         /* Red for drug interaction warnings */
+  --color-danger-bg: #FEE4E2;
+  --color-taken: #E5F4F0;          /* Checked state background */
 
   /* ── Shadows (Softer & more premium) ────── */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);

@@ -142,10 +142,10 @@
             </div>
         </main>
 
-        <!-- หน้าที่ 4.5: เครือข่ายความปลอดภัยยาและการเรียนรู้ของ AI -->
-        <main class="page" id="page-network">
+        <!-- หน้าที่ 4.5: ความปลอดภัยยาจำลอง (Safety Page) -->
+        <main class="page" id="page-safety">
             <div class="page-content">
-                <!-- Rendered dynamically by network.js -->
+                <!-- Rendered dynamically by safety.js -->
             </div>
         </main>
 
@@ -160,6 +160,13 @@
         <main class="page" id="page-scan-check">
             <div class="page-content">
                 <!-- Rendered dynamically by scan-check.js -->
+            </div>
+        </main>
+
+        <!-- หน้าที่ 6: ผู้ช่วย AI อัจฉริยะ (Care Agent) -->
+        <main class="page" id="page-agent">
+            <div class="page-content">
+                <!-- Rendered dynamically by agent.js -->
             </div>
         </main>
 
@@ -406,11 +413,17 @@
                 </span>
                 <span class="nav-label">ตู้ยา</span>
             </a>
-            <a class="nav-item" data-page="network" onclick="App.navigate('network')" role="button" tabindex="0">
+            <a class="nav-item" data-page="safety" onclick="App.navigate('safety')" role="button" tabindex="0">
                 <span class="nav-icon">
-                    <svg class="svg-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                    <svg class="svg-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 </span>
-                <span class="nav-label">เครือข่ายยา</span>
+                <span class="nav-label">ปลอดภัย</span>
+            </a>
+            <a class="nav-item" data-page="agent" onclick="App.navigate('agent')" role="button" tabindex="0">
+                <span class="nav-icon">
+                    <svg class="svg-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                </span>
+                <span class="nav-label">ผู้ช่วย AI</span>
             </a>
             <a class="nav-item" data-page="settings" onclick="App.navigate('settings')" role="button" tabindex="0">
                 <span class="nav-icon">
@@ -423,6 +436,8 @@
     </div><!-- end .app-container -->
 
     <!-- โหลดโค้ดจาวาสคริปต์ต่างๆ -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js?v=1.1"></script>
     <script src="js/data.js?v=1.1"></script>
     <script src="js/db.js?v=1.1"></script>
     <script src="js/utils.js?v=1.1"></script>
@@ -430,11 +445,12 @@
     <script src="js/add-medicine.js?v=1.1"></script>
     <script src="js/analysis.js?v=1.1"></script>
     <script src="js/cabinet.js?v=1.1"></script>
-    <script src="js/network.js?v=1.1"></script>
+    <script src="js/safety.js?v=1.1"></script>
     <script src="js/food-clash.js?v=1.1"></script>
     <script src="js/scan-check.js?v=1.1"></script>
     <script src="js/settings.js?v=1.1"></script>
     <script src="js/challenge.js?v=1.1"></script>
+    <script src="js/agent.js?v=1.1"></script>
     <script src="js/app.js?v=1.1"></script>
 </body>
 </html>
