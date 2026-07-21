@@ -395,7 +395,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.yacheck.app;
-				PRODUCT_NAME = YaCheck;
+				PRODUCT_NAME = "YaCheck";
 				SWIFT_OBJC_BRIDGING_HEADER = "YaCheck/YaCheck-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -430,7 +430,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.yacheck.app;
-				PRODUCT_NAME = YaCheck;
+				PRODUCT_NAME = "YaCheck";
 				SWIFT_OBJC_BRIDGING_HEADER = "YaCheck/YaCheck-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -598,7 +598,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.yacheck.app;
-				PRODUCT_NAME = YaCheck;
+				PRODUCT_NAME = "YaCheck";
 				SWIFT_OBJC_BRIDGING_HEADER = "YaCheck/YaCheck-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

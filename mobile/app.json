@@ -44,7 +44,16 @@
       "expo-secure-store",
       "expo-sqlite",
       "expo-image",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F7FBFA",
+          "image": "./assets/icon.png",
+          "imageWidth": 168,
+          "resizeMode": "contain"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
