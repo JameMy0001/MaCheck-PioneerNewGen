@@ -14,6 +14,7 @@ from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
     HRFlowable,
+    Image,
     KeepTogether,
     PageBreak,
     PageTemplate,
@@ -322,6 +323,20 @@ def section_decision(story: list) -> None:
                 [50, 124]
             ),
             Spacer(1, 5 * mm),
+            p("แผนภาพโครงสร้างสถาปัตยกรรมและการไหลของข้อมูล (YaCheck Care Agent Workflow)", H3),
+            Spacer(1, 2 * mm),
+            Table(
+                [[Image(str(ROOT / "output" / "pdf" / "yacheck_agent_workflow.jpg"), width=128 * mm, height=96 * mm)]],
+                colWidths=[174 * mm],
+                hAlign="CENTER",
+                style=TableStyle([
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ])
+            ),
+            Spacer(1, 6 * mm),
             note(
                 "คำแนะนำหลัก",
                 "เริ่มด้วย Agent ตัวเดียวที่ทำหน้าที่ Supervisor และใช้ Skills/Tools เฉพาะด้าน ภายใต้ลำดับงานความปลอดภัยที่กำหนดไว้ล่วงหน้า งานอ่านข้อมูลที่เป็นอิสระจึงค่อยรันขนาน แล้วรวมผลกลับมาผ่าน safety gate ก่อนแสดงผู้ใช้",
