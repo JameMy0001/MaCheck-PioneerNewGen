@@ -12,7 +12,8 @@ const Agent = {
 1. ให้ข้อมูลตามจริงจาก Snapshot ข้อมูลคนไข้เท่านั้น ห้ามแต่งข้อมูลขึ้นมาเอง (No Hallucination)
 2. หากพบความเสี่ยงหรือข้อมูลไม่ครบถ้วน ให้เตือนและแนะนำให้ปรึกษาแพทย์หรือเภสัชกร
 3. ห้ามสั่งเพิ่ม ลด หรือหยุดยาด้วยตัวเองโดยเด็ดขาด`,
-    selectedModel: 'gemini-35-flash',
+    selectedModel: 'meta/llama-3.1-70b-instruct',
+    nvidiaApiKey: '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',
     temperature: 0.2,
     messages: [
       { sender: 'agent', text: 'สวัสดีครับ ผมคือผู้ช่วย AI เช็คสุขภาพและยา (YaCheck Care Agent) ยินดีต้อนรับเข้าสู่ระบบทดลองเล่นครับ คุณสามารถกดเริ่มวิเคราะห์ประวัติสุขภาพ หรือพิมพ์คุยสอบถามข้อมูลเกี่ยวกับยาและร่างกายของคุณได้จากกล่องข้อความด้านล่างครับ' }
@@ -166,15 +167,56 @@ const Agent = {
         this.state.currentStepIndex = 3;
         this.render();
 
-        // ขั้นที่ 3: เรียกโมเดล LLM หรือ Fail (ดีเลย์ 1200ms)
-        setTimeout(() => {
+        // ขั้นที่ 3: เรียกโมเดล LLM หรือ Fail
+        setTimeout(async () => {
           if (this.state.outageMode) {
             // โหมด LLM ล้มเหลว -> ตกไปที่ Fallback Mode
             this.state.runStatus = 'failed';
-            this.state.lastRunSummary = this.generateFallbackSummary(snapshot, adherence, interactions, allergies);
+            const summary = this.generateFallbackSummary(snapshot, adherence, interactions, allergies);
+            summary.llmPersonalizedAdvice = '⚠️ [โหมดความปลอดภัยแบบจำกัด] แสดงข้อมูลการวิเคราะห์เฉพาะแบบออฟไลน์เนื่องจากเซิร์ฟเวอร์ AI ขัดข้อง';
+            this.state.lastRunSummary = summary;
             Utils.showToast('LLM ขัดข้อง! ระบบสลับไปใช้โหมดประเมินผลความปลอดภัยแบบดั้งเดิม', 'error', 3000);
             this.render();
             return;
+          }
+
+          let personalizedAdvice = '';
+          try {
+            const contextPrompt = `คุณคือผู้ช่วย AI ดูแลสุขภาพ (YaCheck Care Agent)
+ข้อมูลคนไข้ปัจจุบัน:
+- ชื่อคนไข้: ${snapshot.user.name}
+- ยาในตู้ยา: ${snapshot.medicines.map(m => `- ${m.customName || m.medicineId} (${m.dosageMg}mg) [${m.status === 'stopped' ? 'หยุดใช้' : 'กำลังใช้'}]`).join('\n')}
+- โรคประจำตัว: ${snapshot.user.diseases.join(', ') || 'ไม่มีข้อมูล'}
+- ประวัติแพ้ยา: ${snapshot.user.allergies.map(a => `${a.medicineName} (ระดับความรุนแรง: ${a.severity})`).join(', ') || 'ไม่มีข้อมูล'}
+- ความสม่ำเสมอในการกินยา (Adherence) วันนี้: ${adherence.rate}%
+- ข้อมูลยาตีกัน (Drug Interactions) ในระบบ: ${interactions.length > 0 ? interactions.map(i => `${i.med1Name} กับ ${i.med2Name} (${i.severity})`).join(', ') : 'ไม่พบความเสี่ยง'}
+
+คำสั่งควบคุม AI:
+กรุณาเขียนบทวิเคราะห์สุขภาพและความปลอดภัยของการใช้ยาโดยสรุปแบบส่วนบุคคลของคนไข้คนนี้ ความยาว 2-3 ประโยคสั้นๆ เน้นความอบอุ่น เป็นกันเอง ปลอดภัย และชี้ให้เห็นจุดเสี่ยงสำคัญ (เช่น การลืมทานยา หรือยาตีกันถ้ามี) ตอบเป็นภาษาไทยอย่างสุภาพ ห้ามแนะนำให้เริ่มทานยาตัวใหม่ที่ไม่เกี่ยวข้องด้วยตนเอง`;
+
+            const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.state.nvidiaApiKey}`
+              },
+              body: JSON.stringify({
+                model: this.state.selectedModel,
+                messages: [{ role: 'user', content: contextPrompt }],
+                temperature: this.state.temperature,
+                max_tokens: 300
+              })
+            });
+
+            if (response.ok) {
+              const resJson = await response.json();
+              personalizedAdvice = resJson.choices[0].message.content;
+            } else {
+              throw new Error('Server returned ' + response.status);
+            }
+          } catch (e) {
+            console.warn('[AI Agent] เรียก NVIDIA NIM สำหรับรายงานส่วนบุคคลล้มเหลว:', e);
+            personalizedAdvice = 'วิเคราะห์ประวัติทั่วไปสำเร็จ: คนไข้มีรายการยาในตู้ ' + snapshot.medicines.length + ' รายการ ความสม่ำเสมอทานยา ' + adherence.rate + '% (ระบบเชื่อมต่อ AI มีความล่าช้าชั่วคราว)';
           }
 
           this.state.runStatus = 'validating_evidence';
@@ -183,10 +225,9 @@ const Agent = {
 
           // ขั้นที่ 4: ตรวจสอบความถูกต้องและหลักฐานอ้างอิง (ดีเลย์ 600ms)
           setTimeout(() => {
-            // สรุปข้อมูล 7 หมวด
             const summary = this.generateAgentSummary(snapshot, adherence, interactions, allergies);
-            
-            // เปรียบเทียบ Diff ยา / สุขภาพ
+            summary.llmPersonalizedAdvice = personalizedAdvice;
+
             if (this.state.lastRunSummary) {
               this.state.previousSummary = this.state.lastRunSummary;
             }
@@ -394,7 +435,7 @@ const Agent = {
   },
 
   // พิมพ์ตั้งคำถามจำลองและให้ผู้ช่วยจำลองวิเคราะห์ตอบสด
-  askQuestion(text) {
+  async askQuestion(text) {
     if (!text.trim()) return;
 
     // เพิ่มข้อความคนไข้
@@ -407,11 +448,77 @@ const Agent = {
     const interactions = this.checkDrugInteractions(snapshot);
     const allergies = this.checkAllergyConflicts(snapshot);
 
-    // ตอบกลับจำลอง (ดีเลย์ 800ms ให้เหมือนกำลังประมวลผล)
+    // เลื่อนกล่องแชทไปล่าสุด
     setTimeout(() => {
+      const chatBody = document.querySelector('.agent-chat-body');
+      if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
+    }, 50);
+
+    try {
+      if (this.state.outageMode) {
+        throw new Error('Forced Outage Mode Enabled');
+      }
+
+      // เตรียมชุดข้อความสำหรับส่งให้ LLM
+      const contextPrompt = `คุณคือผู้ช่วย AI ดูแลสุขภาพ (YaCheck Care Agent)
+ข้อมูลคนไข้ปัจจุบัน:
+- ชื่อคนไข้: ${snapshot.user.name}
+- ยาในตู้ยา: ${snapshot.medicines.map(m => `- ${m.customName || m.medicineId} (${m.dosageMg}mg) ทานช่วง ${m.timeSlots?.join(', ')} (สถานะ: ${m.status})`).join('\n')}
+- โรคประจำตัว: ${snapshot.user.diseases.join(', ') || 'ไม่มีข้อมูล'}
+- ประวัติแพ้ยา: ${snapshot.user.allergies.map(a => `- ${a.medicineName} อาการ: ${a.symptoms || 'ไม่ระบุ'} (${a.severity})`).join('\n')}
+- ความสม่ำเสมอในการทานยา (Adherence) วันนี้: ${adherence.rate}% (ทานแล้ว ${adherence.takenCount}/${adherence.expectedCount} โดส)
+- ข้อมูลยาตีกัน (Drug Interactions) ที่พบในตู้ยา: ${interactions.length > 0 ? interactions.map(i => `- ${i.med1Name} ตีกับ ${i.med2Name} (${i.severity})`).join('\n') : 'ไม่พบยาตีกัน'}
+- ประวัติแพ้ยาที่มีในตู้ยา: ${allergies.length > 0 ? allergies.map(a => `- พบประวัติแพ้ยา ${a.medicineName} ในตู้ยา`).join('\n') : 'ไม่พบยาทีแพ้ในตู้ยา'}
+
+คำสั่งควบคุม AI:
+${this.state.systemPrompt}
+
+ตอบคำถามของคนไข้ด้านล่างนี้ โดยให้ข้อมูลที่เป็นจริงตามประวัติ และเน้นความปลอดภัยเป็นสำคัญที่สุด ห้ามจ่ายยาหรือสั่งลด/เพิ่มยาเองโดยเด็ดขาด ตอบเป็นภาษาไทยอย่างเป็นกันเองและสุภาพ`;
+
+      const apiMessages = [
+        { role: 'system', content: contextPrompt }
+      ];
+
+      // ดึงประวัติการคุย 4 ข้อความหลังสุด
+      const recentMsgs = this.state.messages.slice(-5, -1);
+      recentMsgs.forEach(m => {
+        apiMessages.push({
+          role: m.sender === 'user' ? 'user' : 'assistant',
+          content: m.text
+        });
+      });
+
+      apiMessages.push({ role: 'user', content: text });
+
+      const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.state.nvidiaApiKey}`
+        },
+        body: JSON.stringify({
+          model: this.state.selectedModel,
+          messages: apiMessages,
+          temperature: this.state.temperature,
+          max_tokens: 1024
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('API server returned error status ' + response.status);
+      }
+
+      const resData = await response.json();
+      const reply = resData.choices[0].message.content;
+
+      this.state.messages.push({ sender: 'agent', text: reply });
+      this.render();
+    } catch (err) {
+      console.warn('[AI Agent] เรียก NVIDIA NIM API ล้มเหลว กำลังใช้การตอบกลับแบบออฟไลน์:', err);
+      
+      // Fallback ตอบกลับออฟไลน์ตามความเร็วเดิม
       let reply = '';
       const promptLower = text.toLowerCase();
-
       if (promptLower.includes('ยาในตู้') || promptLower.includes('มียาอะไร') || promptLower.includes('ยาของฉัน')) {
         if (snapshot.medicines.length === 0) {
           reply = 'จากการวิเคราะห์ ไม่พบรายการยาในตู้ยาของคุณเลยครับ สามารถเพิ่มประวัติได้ที่แท็บ "เพิ่มยา" ครับ';
@@ -453,13 +560,13 @@ const Agent = {
 
       this.state.messages.push({ sender: 'agent', text: reply });
       this.render();
-
+    } finally {
       // เลื่อนกล่องแชทไปล่าสุด
-      const chatBody = document.querySelector('.agent-chat-body');
-      if (chatBody) {
-        chatBody.scrollTop = chatBody.scrollHeight;
-      }
-    }, 800);
+      setTimeout(() => {
+        const chatBody = document.querySelector('.agent-chat-body');
+        if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
+      }, 50);
+    }
   },
 
   // ดึงคลาสสีตามระดับความปลอดภัย
@@ -651,6 +758,17 @@ const Agent = {
 
           ${diffHtml}
 
+          <!-- ผลวิเคราะห์สุขภาพส่วนบุคคลจากโมเดล AI (NVIDIA NIM Live) -->
+          <div class="card" style="padding:16px; margin-bottom:var(--space-md); border-radius:var(--radius-md); background:linear-gradient(135deg, rgba(33, 110, 99, 0.05) 0%, rgba(242, 166, 90, 0.05) 100%); border: 1.5px solid var(--color-primary-light); box-shadow:var(--shadow-sm); animation: slideUp 0.3s ease;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+              <div style="color:var(--color-primary);">${Utils.getIconSvg('sparkles', 'icon-sm')}</div>
+              <strong style="color:var(--color-primary); font-size:1.05rem; font-family:'Prompt',sans-serif;">บทวิเคราะห์สุขภาพโดยผู้ช่วย AI (NVIDIA NIM Live)</strong>
+            </div>
+            <p style="font-size:0.95rem; color:var(--color-text); line-height:1.55; white-space:pre-line; margin:0;">
+              ${summary.llmPersonalizedAdvice || 'กำลังจัดทำคำปรึกษา...'}
+            </p>
+          </div>
+
           <!-- ปุ่มกระตุ้นยืนยันส่งแพทย์/เภสัชกร -->
           <div class="card" style="padding:14px; margin-bottom:var(--space-md); border-radius:var(--radius-md); background:var(--color-surface); box-shadow:var(--shadow-sm); display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; border-left:4px solid var(--color-primary);">
             <div style="flex:1; min-width:200px;">
@@ -735,13 +853,20 @@ const Agent = {
             <textarea id="playground-prompt-editor" onchange="Agent.updateSystemPrompt(this.value)" style="width:100%; height:80px; background:#0f172a; border:1px solid #334155; border-radius:4px; padding:8px; font-size:0.8rem; color:#f1f5f9; font-family:monospace; resize:none;">${this.state.systemPrompt}</textarea>
           </div>
 
+          <!-- แก้ไข API Key -->
+          <div>
+            <label style="font-size:0.92rem; font-weight:700; color:#cbd5e1; display:block; margin-bottom:4px;">NVIDIA API Key</label>
+            <input type="password" id="playground-api-key" value="${this.state.nvidiaApiKey}" onchange="Agent.updateApiKey(this.value)" style="width:100%; height:32px; background:#0f172a; border:1px solid #334155; border-radius:4px; padding:0 8px; font-size:0.8rem; color:#f1f5f9; width: 100%;" placeholder="ใส่คีย์ NVIDIA API ที่นี่...">
+          </div>
+
           <div style="display:grid; grid-template-columns:1fr 1.2fr; gap:12px;">
             <!-- เลือกรุ่น Model -->
             <div>
-              <label style="font-size:0.85rem; color:#cbd5e1; display:block; margin-bottom:3px;">Model Selection</label>
+              <label style="font-size:0.85rem; color:#cbd5e1; display:block; margin-bottom:3px;">NVIDIA NIM Model</label>
               <select id="playground-model-select" onchange="Agent.updateModel(this.value)" style="width:100%; height:32px; background:#0f172a; border:1px solid #334155; border-radius:4px; font-size:0.8rem; color:#f1f5f9; padding:0 4px;">
-                <option value="gemini-35-flash" ${this.state.selectedModel === 'gemini-35-flash' ? 'selected' : ''}>Gemini 3.5 Flash</option>
-                <option value="gemini-35-pro" ${this.state.selectedModel === 'gemini-35-pro' ? 'selected' : ''}>Gemini 3.5 Pro</option>
+                <option value="meta/llama-3.1-8b-instruct" ${this.state.selectedModel === 'meta/llama-3.1-8b-instruct' ? 'selected' : ''}>Llama 3.1 8B (Fast)</option>
+                <option value="meta/llama-3.1-70b-instruct" ${this.state.selectedModel === 'meta/llama-3.1-70b-instruct' ? 'selected' : ''}>Llama 3.1 70B (Smart)</option>
+                <option value="nvidia/llama-3.1-nemotron-70b-instruct" ${this.state.selectedModel === 'nvidia/llama-3.1-nemotron-70b-instruct' ? 'selected' : ''}>Nemotron 70B (Pro)</option>
               </select>
             </div>
             <!-- ปรับ Temp -->
@@ -817,6 +942,10 @@ const Agent = {
   toggleOutage(checked) {
     this.state.outageMode = checked;
     this.render();
+  },
+
+  updateApiKey(val) {
+    this.state.nvidiaApiKey = val;
   },
 
   updateSystemPrompt(val) {
