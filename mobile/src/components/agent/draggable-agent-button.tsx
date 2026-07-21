@@ -1,14 +1,23 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Animated, Image, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
+import { fetchUserQuota } from '@/services/agent';
 import { useAgentStore } from '@/store/use-agent-store';
 
 const fabIconImage = require('../../../assets/images/ai-agent-fab.png');
 
 export function DraggableAgentButton() {
   const router = useRouter();
-  const { isBubbleVisible, bubblePosition, setBubblePosition, quotaRemaining, currentTier } = useAgentStore();
+  const { isBubbleVisible, bubblePosition, setBubblePosition, quotaRemaining, currentTier, updateQuotaState } = useAgentStore();
+
+  useEffect(() => {
+    fetchUserQuota().then((q) => {
+      if (q) {
+        updateQuotaState(q.quota_remaining ?? 7, q.current_tier ?? 'free', q.max_weekly_quota ?? 7);
+      }
+    });
+  }, []);
 
   const pan = useRef(new Animated.ValueXY({ x: bubblePosition.x, y: bubblePosition.y })).current;
   const isDragging = useRef(false);

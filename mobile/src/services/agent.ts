@@ -328,6 +328,17 @@ export function generateLocalAgentSummary(): UnifiedAgentSummary {
 export async function runAgentAnalysis(): Promise<AgentRunResponse> {
   const store = useAppStore.getState();
   const summary = generateLocalAgentSummary();
+  const quota = await fetchUserQuota();
+
+  if (!quota.allowed && quota.current_tier !== 'admin') {
+    return {
+      success: false,
+      error_code: 'QUOTA_EXCEEDED',
+      message: `คุณใช้โควตาฟรีครบ ${quota.max_weekly_quota || 7} ครั้งในสัปดาห์นี้แล้ว`,
+      quota_remaining: 0,
+      current_tier: quota.current_tier || 'free',
+    };
+  }
 
   // Query Live NVIDIA NIM LLM for Personalized Advice
   const promptMessage = [
@@ -352,8 +363,8 @@ export async function runAgentAnalysis(): Promise<AgentRunResponse> {
   return {
     success: true,
     summary,
-    quota_remaining: 7,
-    current_tier: 'free',
+    quota_remaining: quota.quota_remaining ?? 7,
+    current_tier: quota.current_tier ?? 'free',
   };
 }
 
@@ -362,11 +373,60 @@ export async function fetchUserQuota() {
     return { allowed: true, quota_remaining: 7, current_tier: 'free', max_weekly_quota: 7 };
   }
   try {
-    const { data, error } = await supabase.rpc('check_user_agent_quota');
-    if (error) {
-      return { allowed: true, quota_remaining: 7, current_tier: 'free', max_weekly_quota: 7 };
+    const store = useAppStore.getState();
+    const cleanUsername = (store.profile.username || store.profile.displayName || '').replace(/^@/, '').trim() || 'dev_01';
+
+    // 1. Try RPC check_user_agent_quota_by_handle passing cleanUsername
+    const { data: handleData, error: handleErr } = await supabase.rpc('check_user_agent_quota_by_handle', {
+      p_handle: cleanUsername,
+    });
+
+    if (!handleErr && handleData) {
+      const res = Array.isArray(handleData) ? handleData[0] : handleData;
+      if (res && res.current_tier) {
+        return res;
+      }
     }
-    return Array.isArray(data) ? data[0] : data;
+
+    // 2. Try RPC check_user_agent_quota (by auth.uid())
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('check_user_agent_quota');
+    if (!rpcErr && rpcData) {
+      const res = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+      if (res && res.current_tier) {
+        return res;
+      }
+    }
+
+    // 3. Fallback: Query account_handles by username handle to resolve user_id directly
+    const { data: handleRow } = await supabase
+      .from('account_handles')
+      .select('user_id')
+      .eq('handle', cleanUsername)
+      .maybeSingle();
+
+    const uid = handleRow?.user_id;
+    if (uid) {
+      const { data: profileRow } = await supabase
+        .from('app_profiles')
+        .select('subscription_tier, custom_quota_override, role')
+        .eq('user_id', uid)
+        .maybeSingle();
+
+      if (profileRow) {
+        const tier = profileRow.subscription_tier || (profileRow.role === 'admin' ? 'admin' : 'free');
+        const isUnlimited = tier === 'admin' || profileRow.role === 'admin';
+        const maxQuota = profileRow.custom_quota_override ?? (tier === 'pro' ? 50 : tier === 'family' ? 200 : isUnlimited ? 9999 : 7);
+
+        return {
+          allowed: true,
+          quota_remaining: isUnlimited ? 9999 : maxQuota,
+          current_tier: tier,
+          max_weekly_quota: maxQuota,
+        };
+      }
+    }
+
+    return { allowed: true, quota_remaining: 7, current_tier: 'free', max_weekly_quota: 7 };
   } catch (_) {
     return { allowed: true, quota_remaining: 7, current_tier: 'free', max_weekly_quota: 7 };
   }

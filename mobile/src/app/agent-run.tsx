@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -57,6 +58,7 @@ export default function AgentRunScreen() {
     currentTier,
     maxWeeklyQuota,
     setAnalysisResult,
+    updateQuotaState,
     setReviewRequested,
     isAnalyzing,
     setAnalyzing,
@@ -94,11 +96,12 @@ export default function AgentRunScreen() {
   ]);
 
   const scrollViewRef = useRef<ScrollView>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchUserQuota().then((q) => {
       if (q) {
-        setAnalysisResult(latestSummary, q.quota_remaining ?? 7, q.current_tier ?? 'free', q.max_weekly_quota ?? 7);
+        updateQuotaState(q.quota_remaining ?? 7, q.current_tier ?? 'free', q.max_weekly_quota ?? 7);
       }
     });
   }, []);
@@ -144,6 +147,22 @@ export default function AgentRunScreen() {
       setAnalysisStep(0);
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const q = await fetchUserQuota();
+      const newQuota = q?.quota_remaining ?? 7;
+      const newTier = q?.current_tier ?? 'free';
+      const maxQuota = q?.max_weekly_quota ?? 7;
+
+      // Reset analysis summary back to clean slate and update live quota
+      setAnalysisResult(null, newQuota, newTier, maxQuota);
+    } catch (_) {
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
@@ -246,7 +265,17 @@ export default function AgentRunScreen() {
       </View>
 
       {activeTab === 'summary' ? (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
           {/* Main Banner Card */}
           <View style={styles.bannerCard}>
             <View style={styles.iconTitleRow}>
@@ -254,7 +283,7 @@ export default function AgentRunScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.bannerTitle, { fontSize: 18 * multiplier }]}>ผู้ช่วย AI วิเคราะห์ความปลอดภัย</Text>
                 <Text style={[styles.bannerSub, { fontSize: 13 * multiplier }]}>
-                  ตรวจสอบตู้ยา, เวลาทานยา, อาการแพ้ยา และของแสลงด้วย Clinical Rule Engine อัจฉริยะ
+                  ดึงหน้าจอลงเพื่อรีเฟรชโควตา หรือกดปุ่มเริ่มวิเคราะห์เพื่อประมวลผลประวัติล่าสุด
                 </Text>
               </View>
             </View>
@@ -270,6 +299,7 @@ export default function AgentRunScreen() {
                 <Text style={[styles.runBtnText, { fontSize: 15 * multiplier }]}>⚡ เริ่มการวิเคราะห์ความปลอดภัยล่าสุด</Text>
               )}
             </TouchableOpacity>
+
           </View>
 
           {/* 4-Step Analysis Progress Card */}
@@ -1176,5 +1206,18 @@ const styles = StyleSheet.create({
   progressStepSub: {
     fontSize: 11,
     color: colors.muted,
+  },
+  clearSummaryBtn: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 10,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  clearSummaryBtnText: {
+    color: colors.text,
+    fontWeight: '800',
   },
 });

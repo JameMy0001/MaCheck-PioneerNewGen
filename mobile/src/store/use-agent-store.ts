@@ -18,6 +18,7 @@ interface AgentState {
   setAnalyzing: (isAnalyzing: boolean) => void;
   setReviewRequested: (requested: boolean) => void;
   setAnalysisResult: (summary: UnifiedAgentSummary | null, quotaRemaining: number, currentTier: string, maxWeeklyQuota?: number) => void;
+  updateQuotaState: (quotaRemaining: number, currentTier: string, maxWeeklyQuota?: number) => void;
   resetAgentStore: () => void;
 }
 
@@ -37,6 +38,7 @@ export const useAgentStore = create<AgentState>()(
       setBubblePosition: (bubblePosition) => set({ bubblePosition }),
       setAnalyzing: (isAnalyzing) => set({ isAnalyzing }),
       setReviewRequested: (reviewRequested) => set({ reviewRequested }),
+      updateQuotaState: (quotaRemaining, currentTier, maxWeeklyQuota = 7) => set({ quotaRemaining, currentTier, maxWeeklyQuota }),
       setAnalysisResult: (summary, quotaRemaining, currentTier, maxWeeklyQuota = 7) => {
         const currentLatest = get().latestSummary;
         set({
