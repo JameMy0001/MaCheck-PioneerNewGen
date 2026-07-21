@@ -1,9 +1,12 @@
 {
   "name": "yacheck-prototype",
   "version": "1.0.0",
-  "description": "YaCheck Web Prototype with LangChain integration",
+  "description": "YaCheck Web Prototype & Admin Console",
   "type": "module",
   "main": "index.html",
+  "scripts": {
+    "build": "cd admin && npm install && npm run build"
+  },
   "dependencies": {
     "@langchain/core": "^0.2.0",
     "@langchain/openai": "^0.2.0",
