@@ -37,3 +37,7 @@ verify_jwt = true
 
 [functions.send-caregiver-message]
 verify_jwt = true
+
+[functions.agent-run]
+verify_jwt = false
+

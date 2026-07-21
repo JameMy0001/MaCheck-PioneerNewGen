@@ -9,6 +9,8 @@ import { supabase } from '@/services/supabase';
 import { pullYaCheckSnapshot, pushYaCheckSnapshot } from '@/services/sync';
 import { useAppStore } from '@/store/use-app-store';
 
+import { DraggableAgentButton } from '@/components/agent/draggable-agent-button';
+
 export default function RootLayout() {
   const hydrated = useAppStore((state) => state.hydrated);
   useEffect(() => {
@@ -87,7 +89,10 @@ export default function RootLayout() {
         <Stack.Screen name="caregiver" options={{ title: 'ผู้ดูแลและฉุกเฉิน' }} />
         <Stack.Screen name="caregiver-messages" options={{ title: 'ข้อความจากผู้ดูแล' }} />
         <Stack.Screen name="settings" options={{ title: 'ตั้งค่าและโปรไฟล์' }} />
+        <Stack.Screen name="agent-run" options={{ title: 'AI Care Agent', headerShown: false }} />
       </Stack>
+      <DraggableAgentButton />
     </>
   );
 }
+

@@ -183,3 +183,13 @@ export async function deleteClinicalRecord(table: 'medications' | 'drug_interact
   const { error } = await supabase.from(table).delete().eq(column, key);
   if (error) throw new Error(error.message);
 }
+
+export async function updateUserSubscription(targetUserId: string, newTier: string, customQuota: number | null = null) {
+  const { data, error } = await supabase.rpc('admin_update_user_subscription', {
+    p_target_user_id: targetUserId,
+    p_new_tier: newTier,
+    p_quota_override: customQuota,
+  });
+  if (error) throw new Error(error.message);
+  return data;
+}

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FeatureIcon } from '@/components/feature-icon';
@@ -34,6 +34,7 @@ function mealTimingLabel(value: 'before' | 'after' | 'any') {
 }
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { addedMedicineId } = useLocalSearchParams<{ addedMedicineId?: string }>();
   const profile = useAppStore((state) => state.profile);
   const cabinet = useAppStore((state) => state.cabinet);
@@ -88,6 +89,7 @@ export default function HomeScreen() {
         </View>
         <PrimaryButton label="บันทึกดื่มน้ำ 1 แก้ว" tone="neutral" icon={<FeatureIcon name="water-tracking" size={28} />} onPress={recordWater} disabled={water >= 12} />
       </SectionCard>
+
 
       <View style={{ gap: 8 }}>
         <Text selectable style={{ color: colors.text, fontSize: 22 * multiplier, fontWeight: '900' }}>ตารางยาวันนี้</Text>

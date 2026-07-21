@@ -8,6 +8,8 @@ import { useAppStore } from '@/store/use-app-store';
 import { deleteAccount, signOut } from '@/services/auth';
 import type { FontScale } from '@/types/models';
 
+import { useAgentStore } from '@/store/use-agent-store';
+
 export default function SettingsScreen() {
   const profile = useAppStore((state) => state.profile);
   const updateProfile = useAppStore((state) => state.updateProfile);
@@ -16,6 +18,10 @@ export default function SettingsScreen() {
   const addAllergy = useAppStore((state) => state.addAllergy);
   const removeAllergy = useAppStore((state) => state.removeAllergy);
   const reset = useAppStore((state) => state.reset);
+
+  const isBubbleVisible = useAgentStore((state) => state.isBubbleVisible);
+  const setBubbleVisible = useAgentStore((state) => state.setBubbleVisible);
+
   const multiplier = useFontMultiplier();
   const [allergy, setAllergy] = useState('');
 
@@ -33,7 +39,17 @@ export default function SettingsScreen() {
       <SectionCard title="โปรไฟล์">
         <Field label="Username" value={profile.username} editable={false} />
         <Field label="ชื่อที่ใช้เรียกบนอุปกรณ์นี้" value={profile.displayName} onChangeText={(displayName) => updateProfile({ displayName })} />
-        <Text selectable style={{ color: colors.muted, lineHeight: 20 }}>ชื่อที่ใช้เรียกและข้อมูลผู้ติดต่อฉุกเฉินจะเก็บเฉพาะในอุปกรณ์นี้ ไม่อัปโหลดขึ้นฐานกลาง</Text>
+        <Field
+          label="น้ำหนักตัวล่าสุด (กก.)"
+          value={profile.weightKg ? String(profile.weightKg) : ''}
+          onChangeText={(val) => {
+            const num = parseFloat(val);
+            updateProfile({ weightKg: isNaN(num) ? undefined : num });
+          }}
+          placeholder="เช่น 65"
+          keyboardType="numeric"
+        />
+        <Text selectable style={{ color: colors.muted, lineHeight: 20 }}>ชื่อที่ใช้เรียก น้ำหนักตัว และผู้ติดต่อฉุกเฉินจะเก็บปลอดภัยบนอุปกรณ์และนำไปใช้คำนวณความปลอดภัย AI</Text>
       </SectionCard>
 
       <SectionCard title="โรคประจำตัว">
@@ -61,12 +77,21 @@ export default function SettingsScreen() {
         <Field label="เบอร์โทรฉุกเฉิน" value={profile.emergencyPhone} onChangeText={(emergencyPhone) => updateProfile({ emergencyPhone })} keyboardType="phone-pad" />
       </SectionCard>
 
-      <SectionCard title="การเข้าถึง">
+      <SectionCard title="การเข้าถึงและการแสดงผล AI">
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {([['normal', 'ปกติ'], ['large', 'ใหญ่'], ['xlarge', 'ใหญ่มาก']] as const).map(([value, label]) => (
             <Pressable key={value} onPress={() => setFontScale(value as FontScale)} style={{ flex: 1, padding: 11, borderRadius: 12, borderCurve: 'continuous', backgroundColor: profile.fontScale === value ? colors.primary : colors.surface, borderWidth: 1, borderColor: profile.fontScale === value ? colors.primary : colors.border }}><Text style={{ color: profile.fontScale === value ? '#FFFFFF' : colors.text, fontWeight: '800', textAlign: 'center' }}>{label}</Text></Pressable>
           ))}
         </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Text selectable style={{ color: colors.text, fontSize: 17 * multiplier, fontWeight: '800' }}>แสดงปุ่มลอย AI Care Agent</Text>
+            <Text selectable style={{ color: colors.muted }}>แสดงปุ่มลอยที่ลากเคลื่อนย้ายได้บนหน้าจอมือถือ</Text>
+          </View>
+          <Switch value={isBubbleVisible} onValueChange={(val) => setBubbleVisible(val)} trackColor={{ true: colors.primary }} />
+        </View>
+
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <View style={{ flex: 1 }}><Text selectable style={{ color: colors.text, fontSize: 17 * multiplier, fontWeight: '800' }}>อ่านคำเตือนด้วยเสียง</Text><Text selectable style={{ color: colors.muted }}>ใช้เสียงภาษาไทยในหน้าตรวจอาหาร</Text></View>
           <Switch value={profile.soundEnabled} onValueChange={(soundEnabled) => updateProfile({ soundEnabled })} trackColor={{ true: colors.primary }} />

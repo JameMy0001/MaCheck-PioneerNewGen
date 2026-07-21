@@ -109,6 +109,38 @@ function normalizeMedicineSearchText(value: string) {
 export function searchMedicines(query: string) {
   const normalized = normalizeMedicineSearchText(query);
   if (!normalized) return medicines;
+
+  // Everyday Thai Search Synonyms Mapping
+  const synonymMap: Record<string, string[]> = {
+    แก้ปวด: ['paracetamol', 'ibuprofen', 'diclofenac', 'naproxen', 'celecoxib', 'tramadol', 'aspirin'],
+    ปวดหัว: ['paracetamol', 'ibuprofen'],
+    ลดไข้: ['paracetamol', 'ibuprofen'],
+    พารา: ['paracetamol'],
+    ความดัน: ['amlodipine', 'enalapril', 'losartan', 'hydrochlorothiazide', 'metoprolol', 'atenolol'],
+    เบาหวาน: ['metformin', 'glipizide', 'pioglitazone'],
+    น้ำตาล: ['metformin', 'glipizide', 'pioglitazone'],
+    ไขมัน: ['simvastatin', 'atorvastatin'],
+    คอเลสเตอรอล: ['simvastatin', 'atorvastatin'],
+    กระเพาะ: ['omeprazole'],
+    แสบท้อง: ['omeprazole'],
+    ลดกรด: ['omeprazole'],
+    ขับปัสสาวะ: ['furosemide', 'spironolactone', 'hydrochlorothiazide'],
+    บวม: ['furosemide'],
+    หัวใจ: ['digoxin', 'amiodarone', 'metoprolol'],
+    เลือดอุดตัน: ['aspirin', 'warfarin', 'clopidogrel'],
+    ลิ่มเลือด: ['aspirin', 'warfarin', 'clopidogrel'],
+    ไทรอยด์: ['levothyroxine'],
+    กระดูก: ['alendronate', 'calcium'],
+    แคลเซียม: ['calcium'],
+    สมุนไพร: ['ginkgo', 'ginseng'],
+    แปะก๊วย: ['ginkgo'],
+    โสม: ['ginseng'],
+  };
+
+  const matchedSynonymIds = Object.keys(synonymMap)
+    .filter((key) => normalized.includes(key))
+    .flatMap((key) => synonymMap[key]);
+
   const terms = normalized.split(/\s+/).filter(Boolean);
 
   return medicines
@@ -120,13 +152,16 @@ export function searchMedicines(query: string) {
       const description = normalizeMedicineSearchText(item.description ?? '');
       const searchableText = [nameTh, nameEn, id, category, description].join(' ');
 
-      if (!terms.every((term) => searchableText.includes(term))) return null;
+      const matchesSearch = terms.every((term) => searchableText.includes(term));
+      const matchesSynonym = matchedSynonymIds.includes(item.id);
+
+      if (!matchesSearch && !matchesSynonym) return null;
 
       let rank = 4;
-      if ([nameTh, nameEn, id].some((value) => value === normalized)) rank = 0;
-      else if ([nameTh, nameEn, id].some((value) => value.startsWith(normalized))) rank = 1;
-      else if ([nameTh, nameEn, id].some((value) => value.includes(normalized))) rank = 2;
-      else if (category.includes(normalized)) rank = 3;
+      if (matchesSynonym) rank = 0;
+      else if ([nameTh, nameEn, id].some((value) => value === normalized)) rank = 1;
+      else if ([nameTh, nameEn, id].some((value) => value.startsWith(normalized))) rank = 2;
+      else if ([nameTh, nameEn, id, category].some((value) => value.includes(normalized))) rank = 3;
 
       return { item, rank, index };
     })

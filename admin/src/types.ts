@@ -89,9 +89,12 @@ export interface AdminMember {
 }
 
 export interface AccountSummary {
+  user_id: string;
   handle: string;
   profile_role: string | null;
   source_app: 'yacheck' | 'macheck' | null;
+  subscription_tier?: 'free' | 'pro' | 'family' | 'admin';
+  custom_quota_override?: number | null;
   created_at: string;
   last_login_at: string | null;
 }

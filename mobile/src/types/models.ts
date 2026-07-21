@@ -11,6 +11,7 @@ export interface UserProfile {
   role: UserRole;
   diseases: string[];
   allergies: string[];
+  weightKg?: number;
   fontScale: FontScale;
   soundEnabled: boolean;
   emergencyName: string;
