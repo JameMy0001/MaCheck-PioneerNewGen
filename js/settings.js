@@ -43,11 +43,9 @@ const Settings = {
               </div>
               <div class="text-secondary" style="font-size:0.85rem; margin-top:2px;">อาการ: ${allergy.symptoms || '-'}</div>
             </div>
-            ${state.currentRole !== 'patient' ? `
-              <button class="btn btn-ghost btn-sm" onclick="Settings.removeAllergen('${allergy.id}')" style="color:var(--color-danger); padding:4px 8px; font-size:0.85rem; height:auto; display:inline-flex; align-items:center; justify-content:center; border:none; background:none;">
-                ลบ
-              </button>
-            ` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="Settings.removeAllergen('${allergy.id}')" style="color:var(--color-danger); padding:4px 8px; font-size:0.85rem; height:auto; display:inline-flex; align-items:center; justify-content:center; border:none; background:none;">
+              ลบ
+            </button>
           </div>
         `).join('');
       }
@@ -56,7 +54,7 @@ const Settings = {
     // Toggle Add Button display
     const btnAddAllergy = document.getElementById('btn-add-allergy');
     if (btnAddAllergy) {
-      btnAddAllergy.style.display = state.currentRole === 'patient' ? 'none' : 'inline-block';
+      btnAddAllergy.style.display = 'inline-block';
     }
 
     // Render Sound Settings
@@ -115,7 +113,6 @@ const Settings = {
 
       diseasesGrid.innerHTML = diseaseList.map(d => {
         const isSelected = diseases.includes(d.id);
-        const isDisabled = state.currentRole === 'patient';
         return `
           <button type="button" class="role-card ${isSelected ? 'selected' : ''}" 
             onclick="Settings.toggleDisease('${d.id}')"
@@ -123,11 +120,10 @@ const Settings = {
                    border-radius: var(--radius-md);
                    padding: 10px;
                    text-align: center;
-                   cursor: ${isDisabled ? 'not-allowed' : 'pointer'};
+                   cursor: pointer;
                    font-weight: 600;
                    background: ${isSelected ? 'var(--color-primary-light)' : 'var(--color-surface)'};
                    color: ${isSelected ? 'var(--color-primary)' : 'var(--color-text-secondary)'};
-                   opacity: ${isDisabled && !isSelected ? 0.6 : 1};
                    display: flex;
                    align-items: center;
                    justify-content: center;
@@ -169,8 +165,8 @@ const Settings = {
 
   toggleDisease(diseaseId) {
     if (App.state.currentRole === 'patient') {
-      Utils.showToast('สิทธิ์คนไข้ไม่สามารถแก้ไขข้อมูลได้', 'warning');
-      return;
+      const confirmEdit = confirm('⚠️ คำเตือนความปลอดภัย: ข้อมูลโรคประจำตัวส่งผลต่อการวิเคราะห์คู่ยาแสลงและยาตีกัน หากระบุไม่ถูกต้องระบบจะไม่สามารถดักเตือนความเสี่ยงได้ คุณแน่ใจหรือไม่ว่าต้องการแก้ไขข้อมูลนี้ด้วยตนเอง?');
+      if (!confirmEdit) return;
     }
     const state = App.getState();
     if (!state.user.diseases) {
@@ -222,11 +218,12 @@ const Settings = {
   // ประวัติการแพ้ยา
   async removeAllergen(allergyId) {
     if (App.state.currentRole === 'patient') {
-      Utils.showToast('สิทธิ์คนไข้ไม่สามารถลบประวัติการแพ้ยาได้', 'warning');
-      return;
+      const confirmDelete = confirm('⚠️ คำเตือนความปลอดภัย: การลบประวัติแพ้ยาจะทำให้ระบบยกเลิกการดักเตือนความเสี่ยงการแพ้ยาตัวนี้ คุณแน่ใจหรือไม่ว่าต้องการดำเนินการต่อ?');
+      if (!confirmDelete) return;
+    } else {
+      const confirmDelete = confirm('คุณต้องการลบประวัติการแพ้ยานี้ใช่หรือไม่?');
+      if (!confirmDelete) return;
     }
-    const confirmDelete = confirm('คุณต้องการลบประวัติการแพ้ยานี้ใช่หรือไม่?');
-    if (!confirmDelete) return;
 
     const state = App.getState();
     state.allergyLog = state.allergyLog.filter(a => a.id !== allergyId);
@@ -237,8 +234,8 @@ const Settings = {
 
   async addAllergyLog(medicineName, severity, symptoms) {
     if (App.state.currentRole === 'patient') {
-      Utils.showToast('สิทธิ์คนไข้ไม่สามารถเพิ่มประวัติการแพ้ยาได้', 'warning');
-      return;
+      const confirmAdd = confirm('⚠️ คำเตือนความปลอดภัย: ประวัติการแพ้ยามีความสำคัญอย่างยิ่งต่อการตรวจสอบความปลอดภัยของยา หากระบุไม่ถูกต้องอาจส่งผลต่อการตรวจจับสารอันตราย คุณแน่ใจหรือไม่ว่าต้องการเพิ่มข้อมูลนี้ด้วยตนเอง?');
+      if (!confirmAdd) return;
     }
     if (!medicineName) {
       Utils.showToast('กรุณากรอกชื่อยาที่แพ้ด้วยค่ะ', 'error');

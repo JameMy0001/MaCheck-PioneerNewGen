@@ -148,7 +148,7 @@ const SupabaseService = {
         taken: taken
       },
       currentRole: profile.role || 'patient',
-      soundEnabled: profile.sound_enabled !== undefined ? profile.sound_enabled : true,
+      soundEnabled: profile.sound_enabled !== undefined ? profile.sound_enabled : false,
     };
   },
 
@@ -169,7 +169,7 @@ const SupabaseService = {
       diseases: state.user.diseases || [],
       allergies: (state.user.allergies || []).map(name => ({ name, severity: 'moderate' })),
       font_scale: state.user.fontSize || 'normal',
-      sound_enabled: state.soundEnabled !== undefined ? state.soundEnabled : true,
+      sound_enabled: state.soundEnabled !== undefined ? state.soundEnabled : false,
       source_app: 'yacheck_web',
     });
     if (profileError) throw profileError;

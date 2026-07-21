@@ -42,7 +42,7 @@ const App = {
     },
     allergyLog: [],
     scanHistory: [],
-    soundEnabled: true,
+    soundEnabled: false,
     lineToken: '',
     customMedicines: [],
     customInteractions: []
@@ -340,7 +340,7 @@ const App = {
     
     this.state.currentRole = profile.currentRole !== undefined ? profile.currentRole : null;
     this.state.currentUser = profile.currentUser !== undefined ? profile.currentUser : null;
-    this.state.soundEnabled = profile.soundEnabled !== undefined ? profile.soundEnabled : true;
+    this.state.soundEnabled = profile.soundEnabled !== undefined ? profile.soundEnabled : false;
     this.state.lineToken = profile.lineToken !== undefined ? profile.lineToken : '';
     this.state.emergencyContact = profile.emergencyContact !== undefined ? profile.emergencyContact : { name: 'ลูกชาย', phone: '081-234-5678' };
     this.state.activeChallenge = profile.activeChallenge !== undefined ? profile.activeChallenge : null;
@@ -776,7 +776,7 @@ const App = {
     this.state.scanHistory = [
       { id: 'scan_sample_1', timestamp: new Date(Date.now() - 3600000 * 2).toISOString(), medicineName: 'Metformin', medicineId: 'metformin', dosageMg: 500, status: 'added' }
     ];
-    this.state.soundEnabled = true;
+    this.state.soundEnabled = false;
 
     this.saveState();
     console.log('[YaCheck] เพิ่มข้อมูลยาตัวอย่าง', sampleMedicines.length, 'รายการสำเร็จ');
@@ -868,6 +868,11 @@ const App = {
 
   // หน้าต่างลอยบันทึกแพ้ยาแบบละเอียด
   openAddAllergyModal() {
+    if (this.state.currentRole === 'patient') {
+      const confirmAdd = confirm('⚠️ คำเตือนความปลอดภัย: ประวัติการแพ้ยามีความสำคัญอย่างยิ่งต่อการตรวจสอบความปลอดภัยของยา หากระบุไม่ถูกต้องอาจส่งผลต่อการตรวจจับสารอันตราย คุณแน่ใจหรือไม่ว่าต้องการเพิ่มข้อมูลนี้ด้วยตนเอง?');
+      if (!confirmAdd) return;
+    }
+    
     const nameInput = document.getElementById('allergy-med-name');
     const symptomsInput = document.getElementById('allergy-symptoms');
     if (nameInput) nameInput.value = '';
