@@ -24,6 +24,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from fixthaipdf import clean
+
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "output" / "pdf" / "YaCheck_AI_Agent_Architecture_TH.pdf"
@@ -136,7 +138,7 @@ TAG = ParagraphStyle(
 
 
 def p(text: str, style: ParagraphStyle = BODY) -> Paragraph:
-    return Paragraph(text, style)
+    return Paragraph(clean(text), style)
 
 
 def bullet(text: str, level: int = 0) -> Paragraph:
@@ -148,7 +150,7 @@ def bullet(text: str, level: int = 0) -> Paragraph:
         bulletIndent=(1.5 + level * 6) * mm,
         spaceAfter=2,
     )
-    return Paragraph(text, style, bulletText="•")
+    return Paragraph(clean(text), style, bulletText="•")
 
 
 def numbered(number: str, text: str) -> Table:
@@ -245,7 +247,7 @@ class ArchitectureDocTemplate(BaseDocTemplate):
             canvas.line(18 * mm, height - 12 * mm, width - 18 * mm, height - 12 * mm)
             canvas.setFont("Thai", 7)
             canvas.setFillColor(MUTED)
-            canvas.drawString(18 * mm, height - 9.5 * mm, "YaCheck Care Agent - สถาปัตยกรรมฉบับออกแบบ")
+            canvas.drawString(18 * mm, height - 9.5 * mm, clean("YaCheck Care Agent - สถาปัตยกรรมฉบับออกแบบ"))
             canvas.drawRightString(width - 18 * mm, 9 * mm, f"หน้า {doc.page}")
         canvas.restoreState()
 
