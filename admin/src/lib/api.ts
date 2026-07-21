@@ -214,25 +214,16 @@ export async function updateUserSubscription(targetUserIdOrHandle: string, newTi
     if (!appErr) return { success: true };
   }
 
-  // 3. Fallback: try updating profiles table if it exists
-  const { error: profileErr } = await supabase.from('profiles').update({
-    subscription_tier: newTier,
-    custom_quota_override: customQuota,
-    updated_at: new Date().toISOString(),
-  }).or(`id.eq.${cleanHandle},username.eq.${cleanHandle}`);
+  // 3. Try RPC function admin_update_user_subscription
+  if (targetUserId) {
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_update_user_subscription', {
+      p_target_user_id: targetUserId,
+      p_new_tier: newTier,
+      p_quota_override: customQuota,
+    });
 
-  if (!profileErr) return { success: true };
-
-  // 4. Fallback: call RPC function admin_update_user_subscription if available
-  const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_update_user_subscription', {
-    p_target_user_id: targetUserId || cleanHandle,
-    p_new_tier: newTier,
-    p_quota_override: customQuota,
-  });
-
-  if (rpcErr) {
-    throw new Error(`ไม่สามารถอัปเดตสิทธิ์ของ @${cleanHandle}: ${rpcErr.message}`);
+    if (!rpcErr) return rpcData;
   }
 
-  return rpcData;
+  throw new Error(`กรุณารันคำสั่ง SQL บน Supabase เพื่อสร้างคอลัมน์โควตา (ดูวิธีรันในแช็ตครับ)`);
 }
