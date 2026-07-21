@@ -897,65 +897,6 @@ ${this.state.systemPrompt}
       </div>
     `;
 
-    // แผงแสดงข้อมูลสเปกการทำงานของ AI Agent
-    let specsTableHtml = `
-      <div class="card" style="padding:16px; border-radius:var(--radius-lg); background:var(--color-surface); border:1.5px solid var(--color-border); box-shadow:var(--shadow-sm); margin-bottom:var(--space-md);">
-        <div style="display:flex; align-items:center; gap:8px; border-bottom:1.5px solid var(--color-border); padding-bottom:10px; margin-bottom:12px;">
-          <div style="color:var(--color-primary);">${Utils.getIconSvg('fileText', 'icon-md')}</div>
-          <h3 style="font-family:'Prompt',sans-serif; font-size:1.1rem; font-weight:700; color:var(--color-primary); margin:0;">สรุปสเปกและกลไกสถาปัตยกรรมของ AI Agent (YaCheck Specs)</h3>
-        </div>
-        <p class="text-secondary" style="font-size:0.85rem; margin-top:-4px; margin-bottom:12px;">
-          วิเคราะห์ตามคำแนะนำในคู่มือ <i>Building Effective AI Agents</i> (Anthropic) สำหรับระบบที่มีความปลอดภัยสูง
-        </p>
-        <div style="overflow-x:auto;">
-          <table style="width:100%; border-collapse:collapse; font-size:0.88rem; text-align:left;">
-            <thead>
-              <tr style="background-color:rgba(33, 110, 99, 0.08); border-bottom:2px solid var(--color-primary-light);">
-                <th style="padding:10px; font-weight:700; color:var(--color-primary); width:30%;">หัวข้อวิเคราะห์</th>
-                <th style="padding:10px; font-weight:700; color:var(--color-primary); width:70%;">รายละเอียดกลไกในระบบปัจจุบัน</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style="border-bottom:1px solid var(--color-border);">
-                <td style="padding:10px; font-weight:700; color:var(--color-text);">1. รูปแบบสถาปัตยกรรม<br><span style="font-size:0.75rem; color:var(--color-primary); font-weight:normal;">(Architecture Pattern)</span></td>
-                <td style="padding:10px; line-height:1.45;">
-                  <strong>Single Agent + Sequential Safety Workflow</strong> (ตรงตามหน้า 12 และ 18 ของคู่มือ)<br>
-                  <span style="font-size:0.82rem; color:var(--color-text-secondary);">ใช้กลไกวิเคราะห์ความเสี่ยงด้านการแพทย์แบบทีละขั้นตอนอย่างเป็นระบบและคาดการณ์ได้ ไม่ใช้วิธีปล่อยให้ AI ทำงานอิสระแบบไม่มีกฎควบคุม (เพื่อความปลอดภัยทางคลินิกสูงสุด)</span>
-                </td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--color-border);">
-                <td style="padding:10px; font-weight:700; color:var(--color-text);">2. ขอบเขตการทำงาน<br><span style="font-size:0.75rem; color:var(--color-primary); font-weight:normal;">(App Coverage Scope)</span></td>
-                <td style="padding:10px; line-height:1.45;">
-                  ครอบคลุม 5 หมวดหลัก:
-                  <ul style="margin:4px 0 0 16px; padding:0; list-style-type:disc; font-size:0.82rem;">
-                    <li>ตรวจสอบความซ้ำซ้อนและยาตีกันในตู้ยา (Drug Interaction)</li>
-                    <li>ตรวจสอบความปลอดภัยของประวัติแพ้ยาของคนไข้ (Allergy Check)</li>
-                    <li>คำนวณอัตราความสม่ำเสมอในการรับประทานยาประจำวัน (Adherence Rate)</li>
-                    <li>วิเคราะห์ค่าน้ำหนักร่างกายเพื่อกรองความเข้ากันได้ของขนาดยา (Body Metric Eligibility)</li>
-                    <li>สรุปรายงานสุขภาพและแจ้งเตือนข้อสงสัยให้แพทย์และเภสัชกร (Clinician Summary)</li>
-                  </ul>
-                </td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--color-border);">
-                <td style="padding:10px; font-weight:700; color:var(--color-text);">3. การดึงข้อมูลเข้าระบบ<br><span style="font-size:0.75rem; color:var(--color-primary); font-weight:normal;">(Data Ingestion)</span></td>
-                <td style="padding:10px; line-height:1.45;">
-                  <strong>ดึงข้อมูลแบบ Real-time Snapshot จาก Supabase</strong><br>
-                  <span style="font-size:0.82rem; color:var(--color-text-secondary);">อ่านประวัติโรคและแพ้ยาจาก <code>app_profiles</code>, รายการยาในตู้จาก <code>patient_medications</code>, และประวัติการกดกินยาจาก <code>dose_events</code> มาประกอบเป็นบริบทในเบราว์เซอร์ก่อนส่งวิเคราะห์</span>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding:10px; font-weight:700; color:var(--color-text);">4. กลไกการคำนวณและ AI<br><span style="font-size:0.75rem; color:var(--color-primary); font-weight:normal;">(Calculation & AI Rules)</span></td>
-                <td style="padding:10px; line-height:1.45;">
-                  <strong>Rule-based Engine (คำนวณหลัก) + LLM Llama 3.1 (สรุปคำแนะนำ)</strong><br>
-                  <span style="font-size:0.82rem; color:var(--color-text-secondary);">การตรวจยาตีกัน แพ้ยา และ Adherence คำนวณแบบแม่นยำ 100% ด้วยโค้ดโปรแกรมเมอร์ ไม่ใช่ให้ AI คำนวณเลขอัตโนมัติ (ป้องกัน AI หลอนปริมาณยา) ส่วนโมเดล LLM (Llama 3.1 70B ผ่าน LangChain JS) ทำหน้าที่นำผลคำนวณมาเรียบเรียงเป็นประโยคคำปรึกษาที่อบอุ่นและเข้าใจง่าย</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-
     // วาดโครงสร้างทั้งหมดลง Container
     container.innerHTML = `
       <div class="agent-page-wrapper" style="display:flex; flex-direction:column; gap:var(--space-md);">
@@ -973,9 +914,6 @@ ${this.state.systemPrompt}
 
         <!-- แผงควบคุม Sandbox -->
         ${playgroundControlHtml}
-
-        <!-- ตารางสรุปสเปกและสถาปัตยกรรมของ AI Agent -->
-        ${specsTableHtml}
 
         <!-- เนื้อหาหลัก (สรุป / สถานะวิเคราะห์) -->
         ${mainContentHtml}
