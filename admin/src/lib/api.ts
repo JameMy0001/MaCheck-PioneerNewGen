@@ -185,59 +185,73 @@ export async function deleteClinicalRecord(table: 'medications' | 'drug_interact
 }
 
 export async function updateUserSubscription(targetUserIdOrHandle: string, newTier: string, customQuota: number | null = null) {
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserIdOrHandle);
+  const cleanHandle = targetUserIdOrHandle.replace(/^@/, '').trim();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanHandle);
 
+  // 1. If it's a valid UUID, update directly by ID
   if (isUuid) {
-    const { data, error } = await supabase.rpc('admin_update_user_subscription', {
-      p_target_user_id: targetUserIdOrHandle,
-      p_new_tier: newTier,
-      p_quota_override: customQuota,
-    });
-    if (!error) return data;
-  }
-
-  // 1. Resolve user_id from account_handles or profiles
-  let targetId: string | null = null;
-  const { data: handleRow } = await supabase
-    .from('account_handles')
-    .select('user_id')
-    .eq('handle', targetUserIdOrHandle)
-    .maybeSingle();
-
-  if (handleRow?.user_id) {
-    targetId = handleRow.user_id;
-  } else {
-    const { data: profileRow } = await supabase
-      .from('profiles')
-      .select('id')
-      .or(`username.eq.${targetUserIdOrHandle},id.eq.${targetUserIdOrHandle}`)
-      .maybeSingle();
-    targetId = profileRow?.id ?? null;
-  }
-
-  const finalUid = targetId || targetUserIdOrHandle;
-
-  // 2. Upsert directly to profiles table
-  const { data, error } = await supabase.from('profiles').upsert(
-    {
-      id: finalUid,
+    const { error } = await supabase.from('profiles').update({
       subscription_tier: newTier,
       custom_quota_override: customQuota,
       updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'id' }
-  );
+    }).eq('id', cleanHandle);
 
-  if (error) {
-    // 3. Fallback to RPC by handle
-    const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_update_user_subscription_by_handle', {
-      p_target_handle: targetUserIdOrHandle,
-      p_new_tier: newTier,
-      p_quota_override: customQuota,
-    });
-    if (rpcErr) throw new Error(rpcErr.message || error.message);
-    return rpcData;
+    if (!error) return { success: true };
   }
 
-  return data;
+  // 2. Try looking up user_id from account_handles table
+  const { data: handleRow } = await supabase
+    .from('account_handles')
+    .select('user_id')
+    .eq('handle', cleanHandle)
+    .maybeSingle();
+
+  if (handleRow?.user_id) {
+    const { error: updateErr } = await supabase.from('profiles').update({
+      subscription_tier: newTier,
+      custom_quota_override: customQuota,
+      updated_at: new Date().toISOString(),
+    }).eq('id', handleRow.user_id);
+
+    if (!updateErr) return { success: true };
+  }
+
+  // 3. Try looking up profile by username column
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', cleanHandle)
+    .maybeSingle();
+
+  if (profileRow?.id) {
+    const { error: updateErr } = await supabase.from('profiles').update({
+      subscription_tier: newTier,
+      custom_quota_override: customQuota,
+      updated_at: new Date().toISOString(),
+    }).eq('id', profileRow.id);
+
+    if (!updateErr) return { success: true };
+  }
+
+  // 4. Try updating by username directly in profiles table
+  const { error: directErr } = await supabase.from('profiles').update({
+    subscription_tier: newTier,
+    custom_quota_override: customQuota,
+    updated_at: new Date().toISOString(),
+  }).eq('username', cleanHandle);
+
+  if (!directErr) return { success: true };
+
+  // 5. Try calling existing RPC function admin_update_user_subscription if available
+  const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_update_user_subscription', {
+    p_target_user_id: handleRow?.user_id || profileRow?.id || cleanHandle,
+    p_new_tier: newTier,
+    p_quota_override: customQuota,
+  });
+
+  if (rpcErr) {
+    throw new Error(`ไม่สามารถอัปเดตสิทธิ์ของ @${cleanHandle}: ${directErr.message || rpcErr.message}`);
+  }
+
+  return rpcData;
 }
