@@ -188,42 +188,26 @@ export async function updateUserSubscription(targetUserIdOrHandle: string, newTi
   const cleanHandle = targetUserIdOrHandle.replace(/^@/, '').trim();
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanHandle);
 
-  let targetUserId = isUuid ? cleanHandle : null;
+  // 1. Call RPC function passing either UUID or Handle
+  const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_update_user_subscription', {
+    p_target_user_id: isUuid ? cleanHandle : null,
+    p_target_handle: isUuid ? null : cleanHandle,
+    p_new_tier: newTier,
+    p_quota_override: customQuota,
+  });
 
-  if (!targetUserId) {
-    // 1. Resolve user_id from account_handles table
-    const { data: handleRow } = await supabase
-      .from('account_handles')
-      .select('user_id')
-      .eq('handle', cleanHandle)
-      .maybeSingle();
+  if (!rpcErr) return rpcData;
 
-    if (handleRow?.user_id) {
-      targetUserId = handleRow.user_id;
-    }
-  }
-
-  if (targetUserId) {
-    // 2. Update app_profiles table (the actual profile table in Supabase)
+  // 2. Fallback: try direct app_profiles table update if UUID
+  if (isUuid) {
     const { error: appErr } = await supabase.from('app_profiles').update({
       subscription_tier: newTier,
       custom_quota_override: customQuota,
       updated_at: new Date().toISOString(),
-    }).eq('user_id', targetUserId);
+    }).eq('user_id', cleanHandle);
 
     if (!appErr) return { success: true };
   }
 
-  // 3. Try RPC function admin_update_user_subscription
-  if (targetUserId) {
-    const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_update_user_subscription', {
-      p_target_user_id: targetUserId,
-      p_new_tier: newTier,
-      p_quota_override: customQuota,
-    });
-
-    if (!rpcErr) return rpcData;
-  }
-
-  throw new Error(`กรุณารันคำสั่ง SQL บน Supabase เพื่อสร้างคอลัมน์โควตา (ดูวิธีรันในแช็ตครับ)`);
+  throw new Error(`ไม่สามารถอัปเดตสิทธิ์ของ @${cleanHandle}: ${rpcErr.message}`);
 }
