@@ -45,18 +45,19 @@ const publicConfig = (config: RuntimeConfig, keyConfigured: boolean) => ({
 async function requireAdmin(req: Request) {
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace("Bearer ", "").trim();
-  if (!token) return null;
+  if (!token) return { error: "AUTH_REQUIRED" as const };
 
   const admin = adminClient();
   const { data: { user }, error: authError } = await admin.auth.getUser(token);
-  if (authError || !user) return null;
+  if (authError || !user) return { error: "SESSION_INVALID" as const };
   const { data: membership, error: membershipError } = await admin
     .from("admin_members")
     .select("role")
     .eq("user_id", user.id)
     .eq("active", true)
     .maybeSingle();
-  if (membershipError || !membership) return null;
+  if (membershipError) throw new Error("ADMIN_MEMBERSHIP_LOOKUP_FAILED");
+  if (!membership) return { error: "ADMIN_ACCESS_REQUIRED" as const };
   return { admin, user, role: membership.role as AdminRole };
 }
 
@@ -145,7 +146,15 @@ Deno.serve(async (req) => {
 
   try {
     const context = await requireAdmin(req);
-    if (!context) return json({ error: "Admin access required" }, 403);
+    if ("error" in context) {
+      if (context.error === "AUTH_REQUIRED") {
+        return json({ error: "กรุณาเข้าสู่ระบบใหม่", code: context.error }, 401);
+      }
+      if (context.error === "SESSION_INVALID") {
+        return json({ error: "เซสชันหมดอายุ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่", code: context.error }, 401);
+      }
+      return json({ error: "บัญชีนี้ไม่มีสิทธิ์จัดการ AI Agent", code: context.error }, 403);
+    }
     const { admin, user, role } = context;
     const body = await parseBody(req);
     const intent = String(body.intent ?? "get_config");
@@ -174,7 +183,9 @@ Deno.serve(async (req) => {
       return json(result, result.success ? 200 : 503);
     }
 
-    if (role !== "owner") return json({ error: "Owner access required" }, 403);
+    if (role !== "owner") {
+      return json({ error: "เฉพาะ Owner เท่านั้นที่แก้ไข AI Agent ได้", code: "OWNER_ACCESS_REQUIRED" }, 403);
+    }
 
     if (intent === "update_config") {
       const primaryModel = String(body.primaryModel ?? "");
@@ -275,7 +286,12 @@ Deno.serve(async (req) => {
       error instanceof Error ? error.message : String(error),
     );
     return json(
-      { error: "AI Agent administration is temporarily unavailable" },
+      {
+        error: "ระบบจัดการ AI Agent ไม่พร้อมใช้งานชั่วคราว",
+        code: error instanceof Error && error.message === "ADMIN_MEMBERSHIP_LOOKUP_FAILED"
+          ? "ADMIN_MEMBERSHIP_LOOKUP_FAILED"
+          : "AGENT_ADMIN_UNAVAILABLE",
+      },
       500,
     );
   }
