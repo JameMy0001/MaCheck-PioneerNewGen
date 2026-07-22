@@ -220,7 +220,10 @@ async function invokeAgentAdmin<T>(body: Record<string, unknown>) {
     if (response && typeof response === 'object' && 'clone' in response) {
       const cloned = (response as Response).clone();
       const payload = await cloned.json().catch(() => null) as { error?: string; message?: string; code?: string } | null;
-      if (payload?.error || payload?.message) throw new Error(payload.error || payload.message);
+      if (payload?.error || payload?.message) {
+        const reference = payload.code ? ` [${payload.code}]` : '';
+        throw new Error(`${payload.error || payload.message}${reference}`);
+      }
       if ((response as Response).status === 401) throw new Error('เซสชันหมดอายุ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่');
       if ((response as Response).status === 403) throw new Error('บัญชีนี้ไม่มีสิทธิ์จัดการ AI Agent');
       throw new Error(`ระบบจัดการ AI Agent ตอบกลับผิดพลาด (HTTP ${(response as Response).status})`);

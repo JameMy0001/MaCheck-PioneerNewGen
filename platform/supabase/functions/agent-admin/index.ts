@@ -22,6 +22,13 @@ interface RuntimeConfig {
   updated_at: string;
 }
 
+class AgentAdminStageError extends Error {
+  constructor(readonly code: string, message: string) {
+    super(message);
+    this.name = "AgentAdminStageError";
+  }
+}
+
 const allowedModels = new Set([
   "meta/llama-3.1-70b-instruct",
   "meta/llama-3.1-8b-instruct",
@@ -56,7 +63,12 @@ async function requireAdmin(req: Request) {
     .eq("user_id", user.id)
     .eq("active", true)
     .maybeSingle();
-  if (membershipError) throw new Error("ADMIN_MEMBERSHIP_LOOKUP_FAILED");
+  if (membershipError) {
+    throw new AgentAdminStageError(
+      "ADMIN_MEMBERSHIP_LOOKUP_FAILED",
+      "ตรวจสอบสิทธิ์ผู้ดูแลระบบไม่สำเร็จ",
+    );
+  }
   if (!membership) return { error: "ADMIN_ACCESS_REQUIRED" as const };
   return { admin, user, role: membership.role as AdminRole };
 }
@@ -64,7 +76,12 @@ async function requireAdmin(req: Request) {
 async function loadConfig(admin: ReturnType<typeof adminClient>) {
   const { data, error } = await admin.from("agent_runtime_config").select("*")
     .eq("id", 1).single();
-  if (error) throw error;
+  if (error) {
+    throw new AgentAdminStageError(
+      "AGENT_RUNTIME_CONFIG_LOAD_FAILED",
+      "อ่านการตั้งค่า AI Agent ไม่สำเร็จ",
+    );
+  }
   return data as RuntimeConfig;
 }
 
@@ -285,14 +302,11 @@ Deno.serve(async (req) => {
       "[AgentAdmin] Request failed without logging request content:",
       error instanceof Error ? error.message : String(error),
     );
-    return json(
-      {
-        error: "ระบบจัดการ AI Agent ไม่พร้อมใช้งานชั่วคราว",
-        code: error instanceof Error && error.message === "ADMIN_MEMBERSHIP_LOOKUP_FAILED"
-          ? "ADMIN_MEMBERSHIP_LOOKUP_FAILED"
-          : "AGENT_ADMIN_UNAVAILABLE",
-      },
-      500,
-    );
+    const stageError = error instanceof AgentAdminStageError ? error : null;
+    return json({
+      error: stageError?.message ??
+        "ระบบจัดการ AI Agent ไม่พร้อมใช้งานชั่วคราว",
+      code: stageError?.code ?? "AGENT_ADMIN_UNAVAILABLE",
+    }, 500);
   }
 });
