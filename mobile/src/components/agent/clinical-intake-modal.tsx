@@ -11,16 +11,32 @@ import {
   View,
 } from 'react-native';
 import { colors } from '@/constants/theme';
+import type { AgentClinicalIntakeProfile } from '@/services/agent';
 
 interface ClinicalIntakeModalProps {
   visible: boolean;
   originalQuestion: string;
+  profile?: AgentClinicalIntakeProfile;
+  analysisSource: 'live' | 'rules_only';
   onCancel: () => void;
   onSubmit: (structuredAnswer: string) => void;
 }
 
-const associatedOptions = ['บวม', 'แดง', 'ร้อน', 'ชา', 'อ่อนแรง', 'มีไข้', 'เดินลงน้ำหนักไม่ได้', 'ไม่มีอาการเหล่านี้'] as const;
-const emergencyOptions = ['หายใจลำบาก', 'เจ็บหน้าอก', 'หน้ามืด', 'หมดสติ', 'ไม่มีอาการเหล่านี้'] as const;
+const fallbackProfile: AgentClinicalIntakeProfile = {
+  id: 'general',
+  title: 'อาการที่ต้องซักข้อมูลเพิ่มเติม',
+  summary: 'คำถามต่อไปนี้เป็นการคัดกรองทั่วไป โดยไม่สมมุติตำแหน่งหรือสาเหตุของอาการ',
+  locationLabel: 'มีอาการอะไร และเกิดที่บริเวณใดของร่างกาย?',
+  locationPlaceholder: 'เช่น เวียนศีรษะ เจ็บคอ ปวดหลัง หรือคลื่นไส้',
+  severityLabel: 'ระดับความรุนแรงของอาการ 0–10',
+  onsetPlaceholder: 'เช่น เริ่มเมื่อเช้า เป็นต่อเนื่องมา 4 ชั่วโมง',
+  sensationPlaceholder: 'อธิบายว่าอาการเป็นแบบใด เป็นตลอดหรือเป็น ๆ หาย ๆ',
+  triggerLabel: 'ก่อนเริ่มอาการมีเหตุการณ์ กิจกรรม อาหาร หรือยาใหม่อะไรไหม?',
+  triggerPlaceholder: 'เช่น ออกแรง อดนอน กินอาหาร เริ่มยาใหม่ หรือไม่มี',
+  associatedOptions: ['มีไข้', 'คลื่นไส้หรืออาเจียน', 'ชา', 'อ่อนแรง', 'บวม', 'อาการแย่ลงเร็ว', 'ไม่มีอาการเหล่านี้'],
+  emergencyOptions: ['หายใจลำบาก', 'เจ็บหรือแน่นหน้าอก', 'ชัก หมดสติ หรือสับสนมาก', 'หน้าเบี้ยว พูดไม่ชัด หรือแขนขาอ่อนแรง', 'ไม่มีอาการเหล่านี้'],
+  triedPlaceholder: 'ระบุสิ่งที่ลองทำหรือยาที่ใช้ไปแล้ว หรือพิมพ์ว่า ยังไม่ได้ลอง',
+};
 
 function toggleExclusiveOption(current: string[], option: string) {
   const noneOption = 'ไม่มีอาการเหล่านี้';
@@ -34,9 +50,12 @@ function toggleExclusiveOption(current: string[], option: string) {
 export function ClinicalIntakeModal({
   visible,
   originalQuestion,
+  profile: providedProfile,
+  analysisSource,
   onCancel,
   onSubmit,
 }: ClinicalIntakeModalProps) {
+  const profile = providedProfile ?? fallbackProfile;
   const [locationSide, setLocationSide] = useState('');
   const [severity, setSeverity] = useState<number | null>(null);
   const [onsetDuration, setOnsetDuration] = useState('');
@@ -67,6 +86,7 @@ export function ClinicalIntakeModal({
     const structuredAnswer = [
       'ข้อมูลอาการจากแบบฟอร์มที่ผู้ใช้ยืนยัน:',
       `คำถามเดิม: ${originalQuestion}`,
+      `ชุดคำถามที่ระบบเลือก: ${profile.title} (${profile.id})`,
       `ตำแหน่งและข้างที่เป็น: ${locationSide.trim()}`,
       `ระดับความปวด: ${severity}/10`,
       `เริ่มเมื่อไรและเป็นมานานเท่าไร: ${onsetDuration.trim()}`,
@@ -109,19 +129,28 @@ export function ClinicalIntakeModal({
             <Text selectable style={styles.questionText}>{originalQuestion}</Text>
           </View>
 
-          <Field label="ปวดหรือมีอาการตรงไหน ข้างเดียวหรือสองข้าง?" required>
+          <View style={styles.analysisCard}>
+            <Text style={styles.analysisEyebrow}>
+              {analysisSource === 'live' ? 'AI LIVE วิเคราะห์เบื้องต้นแล้ว' : 'ระบบกฎเลือกคำถามเบื้องต้นแล้ว'}
+            </Text>
+            <Text style={styles.analysisTitle}>{profile.title}</Text>
+            <Text style={styles.analysisSummary}>{profile.summary}</Text>
+            <Text style={styles.analysisDisclaimer}>ใช้เพื่อเลือกคำถามที่เกี่ยวข้องเท่านั้น ไม่ใช่การวินิจฉัยโรค</Text>
+          </View>
+
+          <Field label={profile.locationLabel} required>
             <TextInput
               accessibilityLabel="ตำแหน่งและข้างที่มีอาการ"
               style={styles.input}
               value={locationSide}
               onChangeText={setLocationSide}
               maxLength={120}
-              placeholder="เช่น น่องขาขวา"
+              placeholder={profile.locationPlaceholder}
               placeholderTextColor={colors.muted}
             />
           </Field>
 
-          <Field label="ระดับความปวด 0–10" hint="0 = ไม่ปวด, 10 = ปวดมากที่สุด" required>
+          <Field label={profile.severityLabel} hint="0 = ไม่มีอาการ, 10 = รุนแรงที่สุด" required>
             <View style={styles.scaleGrid}>
               {Array.from({ length: 11 }, (_, value) => (
                 <TouchableOpacity
@@ -139,23 +168,23 @@ export function ClinicalIntakeModal({
           </Field>
 
           <Field label="เริ่มมีอาการเมื่อไร และเป็นมานานเท่าไร?" required>
-            <TextInput style={styles.input} value={onsetDuration} onChangeText={setOnsetDuration} maxLength={160} placeholder="เช่น เริ่มเมื่อวาน เป็นมา 1 วัน" placeholderTextColor={colors.muted} />
+            <TextInput style={styles.input} value={onsetDuration} onChangeText={setOnsetDuration} maxLength={160} placeholder={profile.onsetPlaceholder} placeholderTextColor={colors.muted} />
           </Field>
 
           <Field label="รู้สึกแบบไหน และเป็นตลอดหรือเป็น ๆ หาย ๆ?" required>
-            <TextInput style={styles.input} value={sensation} onChangeText={setSensation} maxLength={160} placeholder="เช่น ปวดตื้อ เป็นตอนเดิน" placeholderTextColor={colors.muted} />
+            <TextInput style={styles.input} value={sensation} onChangeText={setSensation} maxLength={160} placeholder={profile.sensationPlaceholder} placeholderTextColor={colors.muted} />
           </Field>
 
-          <Field label="ก่อนเกิดอาการทำอะไรมาหรือมีอุบัติเหตุไหม?" hint="หากไม่มีให้พิมพ์ว่า ไม่มี" required>
-            <TextInput style={styles.input} value={trigger} onChangeText={setTrigger} maxLength={180} placeholder="เช่น วิ่ง หกล้ม เดินทางนาน หรือไม่มี" placeholderTextColor={colors.muted} />
+          <Field label={profile.triggerLabel} hint="หากไม่มีหรือไม่ทราบ ให้ระบุตามจริง" required>
+            <TextInput style={styles.input} value={trigger} onChangeText={setTrigger} maxLength={180} placeholder={profile.triggerPlaceholder} placeholderTextColor={colors.muted} />
           </Field>
 
-          <ChoiceField label="มีอาการร่วมข้อใดบ้าง?" options={associatedOptions} selected={associated} onToggle={(option) => setAssociated((current) => toggleExclusiveOption(current, option))} />
+          <ChoiceField label="มีอาการร่วมข้อใดบ้าง?" options={profile.associatedOptions} selected={associated} onToggle={(option) => setAssociated((current) => toggleExclusiveOption(current, option))} />
 
-          <ChoiceField label="ขณะนี้มีสัญญาณฉุกเฉินข้อใดหรือไม่?" options={emergencyOptions} selected={emergency} danger onToggle={(option) => setEmergency((current) => toggleExclusiveOption(current, option))} />
+          <ChoiceField label="ขณะนี้มีสัญญาณฉุกเฉินข้อใดหรือไม่?" options={profile.emergencyOptions} selected={emergency} danger onToggle={(option) => setEmergency((current) => toggleExclusiveOption(current, option))} />
 
           <Field label="ลองดูแลหรือใช้สิ่งใดไปแล้วบ้าง?" hint="หากยังไม่ได้ลองให้พิมพ์ว่า ยังไม่ได้ลอง" required>
-            <TextInput style={styles.input} value={tried} onChangeText={setTried} maxLength={180} placeholder="เช่น พัก ประคบ หรือยังไม่ได้ลอง" placeholderTextColor={colors.muted} />
+            <TextInput style={styles.input} value={tried} onChangeText={setTried} maxLength={180} placeholder={profile.triedPlaceholder} placeholderTextColor={colors.muted} />
           </Field>
 
           <Field label="ข้อมูลเพิ่มเติม (ไม่บังคับ)">
@@ -165,7 +194,7 @@ export function ClinicalIntakeModal({
           {showValidation && !complete ? <Text accessibilityRole="alert" style={styles.validationText}>กรุณาตอบหัวข้อที่มีเครื่องหมาย * และเลือกอาการร่วม/สัญญาณฉุกเฉินให้ครบ</Text> : null}
 
           <View style={styles.notice}>
-            <Text style={styles.noticeText}>หากเลือก “หายใจลำบาก”, “เจ็บหน้าอก”, “หน้ามืด” หรือ “หมดสติ” ระบบจะหยุดการประเมินยาและแนะนำความช่วยเหลือฉุกเฉินก่อน</Text>
+            <Text style={styles.noticeText}>หากเลือกสัญญาณฉุกเฉินข้อใด ระบบจะหยุดการประเมินยาและแนะนำความช่วยเหลือฉุกเฉินก่อน</Text>
           </View>
 
           <TouchableOpacity accessibilityRole="button" style={[styles.submitButton, !complete && styles.submitButtonDisabled]} onPress={submit}>
@@ -216,6 +245,11 @@ const styles = StyleSheet.create({
   questionCard: { padding: 14, gap: 4, borderRadius: 12, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.border },
   questionLabel: { color: colors.primary, fontSize: 11, fontWeight: '800' },
   questionText: { color: colors.text, fontSize: 15, fontWeight: '700', lineHeight: 21 },
+  analysisCard: { padding: 14, gap: 5, borderRadius: 12, backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0' },
+  analysisEyebrow: { color: colors.primary, fontSize: 11, fontWeight: '900' },
+  analysisTitle: { color: colors.text, fontSize: 17, fontWeight: '900' },
+  analysisSummary: { color: colors.text, fontSize: 13, lineHeight: 19 },
+  analysisDisclaimer: { color: colors.muted, fontSize: 11, lineHeight: 16, fontWeight: '700' },
   field: { gap: 8 },
   label: { color: colors.text, fontSize: 15, fontWeight: '800' },
   required: { color: colors.danger },

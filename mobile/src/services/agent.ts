@@ -1,4 +1,12 @@
 import { getMedicine } from '@/data/medicine-db';
+import {
+  AGENT_REQUEST_MAX_ATTEMPTS,
+  AGENT_REQUEST_TIMEOUT_MS,
+  agentRetryDelayMs,
+  createAgentRequestId,
+  shouldRetryAgentRequest,
+  type AgentTransportCode,
+} from '@/services/agent-network';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import { getAdherence, useAppStore } from '@/store/use-app-store';
 import { checkDrugInteractions, getTodayKey } from '@/utils/safety';
@@ -62,11 +70,29 @@ export interface AgentChatTurn {
   content: string;
 }
 
+export interface AgentClinicalIntakeProfile {
+  id: 'headache' | 'abdominal' | 'musculoskeletal' | 'respiratory' | 'skin' | 'general';
+  title: string;
+  summary: string;
+  locationLabel: string;
+  locationPlaceholder: string;
+  severityLabel: string;
+  onsetPlaceholder: string;
+  sensationPlaceholder: string;
+  triggerLabel: string;
+  triggerPlaceholder: string;
+  associatedOptions: string[];
+  emergencyOptions: string[];
+  triedPlaceholder: string;
+}
+
 export interface AgentChatReply {
   text: string;
   responseType: 'information' | 'clarifying_questions' | 'clinical_screening_summary' | 'urgent_escalation' | 'emergency_escalation';
   conversationMode: AgentConversationMode;
   requiresFollowUp: boolean;
+  executionMode: 'live' | 'rules_only';
+  intakeProfile?: AgentClinicalIntakeProfile;
 }
 
 export interface AgentConnectivityResult {
@@ -74,17 +100,28 @@ export interface AgentConnectivityResult {
   code: 'READY' | 'NOT_CONFIGURED' | 'AUTH_REQUIRED' | 'HTTP_ERROR' | 'NETWORK_ERROR';
   message: string;
   status?: number;
+  mode?: 'live' | 'rules_only';
+  checkedAt?: string;
 }
 
 class AgentServiceError extends Error {
   constructor(
     message: string,
-    readonly code: AgentConnectivityResult['code'],
+    readonly code: AgentTransportCode,
     readonly status?: number,
+    readonly serverCode?: string,
+    readonly requestId?: string,
+    readonly attempts = 1,
   ) {
     super(message);
     this.name = 'AgentServiceError';
   }
+}
+
+interface InvokeAgentOptions {
+  requestId?: string;
+  maxAttempts?: number;
+  timeoutMs?: number;
 }
 
 interface AgentQuotaResponse {
@@ -95,6 +132,8 @@ interface AgentQuotaResponse {
   max_weekly_quota: number;
   message?: string;
 }
+
+let serverSupportsRequestReplay = false;
 
 const normalize = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('th');
 
@@ -112,7 +151,9 @@ function allergyMatchesMedicine(allergy: string, medicineId: string) {
     });
 }
 
-async function invokeAgentFunction(body: Record<string, unknown>) {
+const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+async function invokeAgentFunction(body: Record<string, unknown>, options: InvokeAgentOptions = {}) {
   if (!isSupabaseConfigured) {
     throw new AgentServiceError('ยังไม่ได้ตั้งค่า Supabase สำหรับแอปนี้', 'NOT_CONFIGURED');
   }
@@ -121,8 +162,38 @@ async function invokeAgentFunction(body: Record<string, unknown>) {
     throw new AgentServiceError('ไม่พบเซสชันผู้ใช้ กรุณาเข้าสู่ระบบใหม่', 'AUTH_REQUIRED', 401);
   }
 
-  const { data, error } = await supabase.functions.invoke('agent-run', { body });
-  if (error) {
+  const intent = String(body.intent ?? 'summary');
+  const supportsIdempotency = intent === 'chat' || intent === 'summary';
+  const requestId = supportsIdempotency
+    ? options.requestId ?? createAgentRequestId(intent === 'chat' ? 'chat' : 'summary')
+    : undefined;
+  const requestBody = requestId ? { ...body, client_request_id: requestId } : body;
+  const defaultAttempts = supportsIdempotency && serverSupportsRequestReplay
+    ? AGENT_REQUEST_MAX_ATTEMPTS
+    : 1;
+  const maxAttempts = Math.min(Math.max(options.maxAttempts ?? defaultAttempts, 1), 4);
+  const timeoutMs = Math.min(Math.max(options.timeoutMs ?? AGENT_REQUEST_TIMEOUT_MS, 5_000), 60_000);
+  let lastError: AgentServiceError | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const { data, error } = await supabase.functions.invoke('agent-run', {
+      body: requestBody,
+      timeout: timeoutMs,
+      headers: requestId ? { 'x-client-request-id': requestId } : undefined,
+    });
+    if (!error) {
+      if (
+        supportsIdempotency &&
+        requestId &&
+        data &&
+        typeof data === 'object' &&
+        (data as Record<string, unknown>).client_request_id === requestId
+      ) {
+        serverSupportsRequestReplay = true;
+      }
+      return data as Record<string, any>;
+    }
+
     const context = (error as { context?: unknown }).context;
     const responseContext = context && typeof context === 'object'
       && typeof (context as { clone?: unknown }).clone === 'function'
@@ -133,21 +204,67 @@ async function invokeAgentFunction(body: Record<string, unknown>) {
       ? (context as { status: number }).status
       : undefined;
     let serverMessage = '';
+    let serverCode = '';
+    let retryAfterMs: number | undefined;
     if (responseContext) {
       try {
-        const payload = await responseContext.clone().json() as { message?: string; error?: string };
+        const payload = await responseContext.clone().json() as {
+          message?: string;
+          error?: string;
+          error_code?: string;
+          retry_after_ms?: number;
+        };
         serverMessage = payload?.message || payload?.error || '';
+        serverCode = payload?.error_code || '';
+        retryAfterMs = typeof payload?.retry_after_ms === 'number' ? payload.retry_after_ms : undefined;
       } catch {
         serverMessage = '';
       }
     }
-    throw new AgentServiceError(
+
+    if (status === 401 && attempt < maxAttempts) {
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (!refreshError) continue;
+    }
+
+    const code: AgentTransportCode = status === 401
+      ? 'AUTH_REQUIRED'
+      : serverCode === 'REQUEST_IN_PROGRESS'
+        ? 'REQUEST_IN_PROGRESS'
+        : status
+          ? 'HTTP_ERROR'
+          : 'NETWORK_ERROR';
+    lastError = new AgentServiceError(
       serverMessage || error.message || 'ไม่สามารถเรียก AI Agent ได้',
-      status ? 'HTTP_ERROR' : 'NETWORK_ERROR',
+      code,
       status,
+      serverCode || undefined,
+      requestId,
+      attempt,
     );
+
+    console.warn('[AgentNetwork] Request attempt failed', {
+      requestId,
+      intent,
+      attempt,
+      code,
+      status,
+      serverCode: serverCode || undefined,
+    });
+    if (!shouldRetryAgentRequest({ attempt, maxAttempts, code, status, serverCode })) {
+      throw lastError;
+    }
+    await wait(agentRetryDelayMs(attempt, retryAfterMs));
   }
-  return data as Record<string, any>;
+
+  throw lastError ?? new AgentServiceError(
+    'การเชื่อมต่อกับ AI Agent สะดุด กรุณาลองใหม่',
+    'NETWORK_ERROR',
+    undefined,
+    undefined,
+    requestId,
+    maxAttempts,
+  );
 }
 
 export function getAgentErrorMessage(error: unknown) {
@@ -159,6 +276,12 @@ export function getAgentErrorMessage(error: unknown) {
   }
   if (error.code === 'NOT_CONFIGURED') {
     return 'Development build นี้ไม่มีค่าเชื่อมต่อ Supabase กรุณาปิด Metro แล้วเปิดใหม่หลังตรวจไฟล์ .env';
+  }
+  if (error.code === 'NETWORK_ERROR') {
+    return `การเชื่อมต่อสะดุดหลังลองส่งอัตโนมัติ ${error.attempts} ครั้ง ข้อมูลที่กรอกยังไม่ถูกทิ้ง`;
+  }
+  if (error.code === 'REQUEST_IN_PROGRESS') {
+    return 'คำขอเดิมยังประมวลผลอยู่ กรุณากดลองส่งอีกครั้งเพื่อรับผลเดิมโดยไม่ประมวลผลซ้ำ';
   }
   const reference = error.status ? `HTTP ${error.status}` : error.code;
   return `${error.message} (${reference})`;
@@ -173,20 +296,44 @@ export async function checkAgentConnectivity(): Promise<AgentConnectivityResult>
     return { online: false, code: 'AUTH_REQUIRED', message: 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่', status: 401 };
   }
   try {
-    const response = await invokeAgentFunction({ intent: 'health' });
+    const response = await invokeAgentFunction(
+      { intent: 'health' },
+      { maxAttempts: 2, timeoutMs: 12_000 },
+    );
+    serverSupportsRequestReplay = response.capabilities?.idempotent_replay === true;
+    const mode = response.execution_mode === 'live' ? 'live' : 'rules_only';
     return response.success
-      ? { online: true, code: 'READY', message: 'เชื่อมต่อ Agent Server สำเร็จ' }
-      : { online: false, code: 'HTTP_ERROR', message: 'Agent Server ตอบกลับไม่สมบูรณ์' };
+      ? {
+          online: true,
+          code: 'READY',
+          mode,
+          checkedAt: new Date().toISOString(),
+          message: mode === 'live'
+            ? 'เชื่อมต่อ Agent Server และ AI Live สำเร็จ'
+            : 'Agent Server พร้อมใช้งานในโหมดกฎความปลอดภัย (AI Live ยังไม่พร้อม)',
+        }
+      : {
+          online: false,
+          code: 'HTTP_ERROR',
+          checkedAt: new Date().toISOString(),
+          message: 'Agent Server ตอบกลับไม่สมบูรณ์',
+        };
   } catch (error) {
     if (error instanceof AgentServiceError) {
       return {
         online: false,
-        code: error.code,
+        code: error.code === 'REQUEST_IN_PROGRESS' ? 'HTTP_ERROR' : error.code,
         message: getAgentErrorMessage(error),
         status: error.status,
+        checkedAt: new Date().toISOString(),
       };
     }
-    return { online: false, code: 'NETWORK_ERROR', message: 'ไม่สามารถติดต่อ Agent Server ได้' };
+    return {
+      online: false,
+      code: 'NETWORK_ERROR',
+      checkedAt: new Date().toISOString(),
+      message: 'ไม่สามารถติดต่อ Agent Server ได้',
+    };
   }
 }
 
@@ -194,13 +341,17 @@ export async function generateAIChatReplyLive(
   userText: string,
   history: AgentChatTurn[] = [],
   conversationMode: AgentConversationMode = 'general',
+  requestId?: string,
 ): Promise<AgentChatReply> {
-  const data = await invokeAgentFunction({
-    intent: 'chat',
-    message: userText.slice(0, 3000),
-    history: history.slice(-10),
-    conversation_mode: conversationMode,
-  });
+  const data = await invokeAgentFunction(
+    {
+      intent: 'chat',
+      message: userText.slice(0, 3000),
+      history: history.slice(-10),
+      conversation_mode: conversationMode,
+    },
+    { requestId },
+  );
   if (!data.success || typeof data.reply !== 'string') {
     throw new Error(data.message || 'AGENT_CHAT_FAILED');
   }
@@ -211,6 +362,10 @@ export async function generateAIChatReplyLive(
     responseType: data.response_type ?? 'information',
     conversationMode: data.conversation_mode === 'symptom_intake' ? 'symptom_intake' : 'general',
     requiresFollowUp: Boolean(data.requires_follow_up),
+    executionMode: data.execution_mode === 'live' ? 'live' : 'rules_only',
+    intakeProfile: data.intake_profile && typeof data.intake_profile === 'object'
+      ? data.intake_profile as AgentClinicalIntakeProfile
+      : undefined,
   };
 }
 

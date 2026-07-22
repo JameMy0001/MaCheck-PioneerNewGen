@@ -9,6 +9,10 @@ import {
   evaluateClinicalIntake,
   sanitizeClinicalHistory,
 } from "../_shared/clinical-intake.ts";
+import {
+  isRequestLedgerStale,
+  normalizeClientRequestId,
+} from "../_shared/request-idempotency.ts";
 
 type ModelMessage = {
   role: "system" | "user" | "assistant";
@@ -63,8 +67,32 @@ const defaultRuntimeConfig: RuntimeConfig = {
   max_tokens: 500,
   request_timeout_ms: 15_000,
   ai_enabled: true,
-  prompt_version: "agent-safe-v1.2.0",
+  prompt_version: "agent-safe-v1.3.0",
 };
+
+function safeErrorLog(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message.slice(0, 500),
+    };
+  }
+  if (error && typeof error === "object") {
+    const candidate = error as Record<string, unknown>;
+    return {
+      code: typeof candidate.code === "string"
+        ? candidate.code.slice(0, 80)
+        : "UNKNOWN_OBJECT_ERROR",
+      message: typeof candidate.message === "string"
+        ? candidate.message.slice(0, 500)
+        : "Server operation failed",
+      hint: typeof candidate.hint === "string"
+        ? candidate.hint.slice(0, 300)
+        : undefined,
+    };
+  }
+  return { message: String(error).slice(0, 500) };
+}
 
 const normalize = (value: unknown) =>
   String(value ?? "").trim().toLocaleLowerCase("th");
@@ -287,6 +315,40 @@ Deno.serve(async (req) => {
 
   let runIdForFailure: string | null = null;
   let adminForFailure: ReturnType<typeof adminClient> | null = null;
+  let requestLedgerIdForFailure: string | null = null;
+  let clientRequestIdForFailure: string | null = null;
+  let failureStage = "request_initialization";
+  const completeRequest = async (
+    payload: Record<string, unknown>,
+    status = 200,
+  ) => {
+    const responsePayload = clientRequestIdForFailure
+      ? {
+        ...payload,
+        client_request_id: clientRequestIdForFailure,
+        replayed: false,
+      }
+      : payload;
+    if (adminForFailure && requestLedgerIdForFailure) {
+      const { error: ledgerUpdateError } = await adminForFailure
+        .from("agent_request_ledger")
+        .update({
+          status: "completed",
+          response_payload: responsePayload,
+          response_status: status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", requestLedgerIdForFailure);
+      if (ledgerUpdateError) {
+        console.error("[AgentRun] Unable to cache idempotent response:", {
+          stage: "request_ledger_complete",
+          request_id: clientRequestIdForFailure,
+          ...safeErrorLog(ledgerUpdateError),
+        });
+      }
+    }
+    return json(responsePayload, status);
+  };
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace("Bearer ", "").trim();
@@ -294,6 +356,7 @@ Deno.serve(async (req) => {
 
     const admin = adminClient();
     adminForFailure = admin;
+    failureStage = "authentication";
     const { data: { user }, error: authError } = await admin.auth.getUser(
       token,
     );
@@ -305,11 +368,63 @@ Deno.serve(async (req) => {
       return json({ error: "Unsupported intent" }, 400);
     }
     if (intent === "health") {
+      failureStage = "health_readiness";
+      const [
+        readinessResult,
+        runtimeResult,
+        vaultStatusResult,
+      ] = await Promise.all([
+        admin.rpc("server_agent_runtime_readiness"),
+        admin.from("agent_runtime_config")
+          .select("ai_enabled,prompt_version")
+          .eq("id", 1)
+          .maybeSingle(),
+        admin.rpc("server_agent_provider_secret_status", {
+          p_provider: "nvidia",
+        }),
+      ]);
+      if (readinessResult.error || runtimeResult.error) {
+        const readinessError = readinessResult.error ?? runtimeResult.error;
+        console.error("[AgentRun] Health readiness failed:", {
+          stage: failureStage,
+          ...safeErrorLog(readinessError),
+        });
+        return json({
+          success: false,
+          status: "unavailable",
+          error_code: "AGENT_RUNTIME_NOT_READY",
+          message: "Agent Server ยังไม่พร้อมใช้งานกับฐานข้อมูล",
+        }, 503);
+      }
+      const databaseReady = Boolean(
+        (readinessResult.data as { ready?: boolean } | null)?.ready,
+      );
+      if (!databaseReady) {
+        return json({
+          success: false,
+          status: "unavailable",
+          error_code: "AGENT_RUNTIME_ACL_INCOMPLETE",
+          message: "สิทธิ์ฐานข้อมูลของ Agent Server ยังไม่ครบถ้วน",
+        }, 503);
+      }
+      const providerConfigured = Boolean(vaultStatusResult.data) ||
+        Boolean(Deno.env.get("NVIDIA_API_KEY"));
+      const liveEnabled = Boolean(runtimeResult.data?.ai_enabled) &&
+        providerConfigured;
       return json({
         success: true,
-        status: "ready",
+        status: liveEnabled ? "ready" : "rules_only",
         service: "agent-run",
-        schema_version: "1.2",
+        schema_version: "1.4",
+        execution_mode: liveEnabled ? "live" : "rules_only",
+        provider_configured: providerConfigured,
+        prompt_version: runtimeResult.data?.prompt_version ??
+          defaultRuntimeConfig.prompt_version,
+        capabilities: {
+          idempotent_replay: true,
+          max_client_attempts: 3,
+          replay_ttl_hours: 24,
+        },
       });
     }
     const chatMessage = intent === "chat"
@@ -369,12 +484,141 @@ Deno.serve(async (req) => {
       return json({ success: true, requestId: request.id, status: "pending" });
     }
 
+    const rawClientRequestId = body.client_request_id;
+    const clientRequestId = normalizeClientRequestId(rawClientRequestId);
+    if (rawClientRequestId !== undefined && !clientRequestId) {
+      return json({
+        success: false,
+        error_code: "INVALID_CLIENT_REQUEST_ID",
+        message: "รูปแบบรหัสคำขอไม่ถูกต้อง",
+      }, 400);
+    }
+    if (clientRequestId) {
+      failureStage = "request_ledger_claim";
+      clientRequestIdForFailure = clientRequestId;
+      const requestHash = await sha256(JSON.stringify({
+        intent,
+        message: chatMessage,
+        history: chatHistory,
+        conversation_mode: requestedConversationMode,
+      }));
+      const nowIso = new Date().toISOString();
+      await admin.from("agent_request_ledger")
+        .delete()
+        .eq("user_id", user.id)
+        .lt("expires_at", nowIso);
+
+      const { data: claimedLedger, error: claimError } = await admin
+        .from("agent_request_ledger")
+        .insert({
+          user_id: user.id,
+          client_request_id: clientRequestId,
+          request_hash: requestHash,
+          status: "processing",
+        })
+        .select("id")
+        .single();
+
+      if (!claimError && claimedLedger) {
+        requestLedgerIdForFailure = claimedLedger.id;
+      } else if (claimError?.code === "23505") {
+        const { data: existingLedger, error: existingError } = await admin
+          .from("agent_request_ledger")
+          .select(
+            "id,request_hash,status,response_payload,response_status,attempt_count,updated_at",
+          )
+          .eq("user_id", user.id)
+          .eq("client_request_id", clientRequestId)
+          .maybeSingle();
+        if (existingError || !existingLedger) {
+          return json({
+            success: false,
+            error_code: "REQUEST_LEDGER_UNAVAILABLE",
+            message: "ระบบตรวจสอบคำขอซ้ำไม่พร้อมใช้งาน",
+          }, 503);
+        }
+        if (existingLedger.request_hash !== requestHash) {
+          return json({
+            success: false,
+            error_code: "CLIENT_REQUEST_ID_REUSED",
+            message: "รหัสคำขอนี้ถูกใช้กับข้อมูลคนละชุด",
+          }, 409);
+        }
+        if (
+          existingLedger.status === "completed" &&
+          existingLedger.response_payload &&
+          typeof existingLedger.response_payload === "object"
+        ) {
+          return json({
+            ...(existingLedger.response_payload as Record<string, unknown>),
+            client_request_id: clientRequestId,
+            replayed: true,
+          }, Number(existingLedger.response_status ?? 200));
+        }
+
+        const mayReclaim = existingLedger.status === "failed" ||
+          isRequestLedgerStale(existingLedger.updated_at);
+        if (!mayReclaim) {
+          return json({
+            success: false,
+            error_code: "REQUEST_IN_PROGRESS",
+            message: "คำขอเดิมยังประมวลผลอยู่ ระบบจะลองรับผลอีกครั้ง",
+            retry_after_ms: 1500,
+            client_request_id: clientRequestId,
+          }, 409);
+        }
+        const staleBefore = new Date(Date.now() - 75_000).toISOString();
+        let reclaimQuery = admin.from("agent_request_ledger")
+          .update({
+            status: "processing",
+            response_payload: null,
+            response_status: null,
+            attempt_count: Number(existingLedger.attempt_count ?? 1) + 1,
+            updated_at: nowIso,
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000)
+              .toISOString(),
+          })
+          .eq("id", existingLedger.id)
+          .eq("request_hash", requestHash);
+        reclaimQuery = existingLedger.status === "failed"
+          ? reclaimQuery.eq("status", "failed")
+          : reclaimQuery.eq("status", "processing").lt(
+            "updated_at",
+            staleBefore,
+          );
+        const { data: reclaimedLedger, error: reclaimError } =
+          await reclaimQuery.select("id").maybeSingle();
+        if (reclaimError || !reclaimedLedger) {
+          return json({
+            success: false,
+            error_code: "REQUEST_IN_PROGRESS",
+            message: "คำขอเดิมกำลังประมวลผลหรือมีการลองใหม่แล้ว",
+            retry_after_ms: 1500,
+            client_request_id: clientRequestId,
+          }, 409);
+        }
+        requestLedgerIdForFailure = reclaimedLedger.id;
+      } else {
+        console.error("[AgentRun] Request ledger claim failed:", {
+          stage: failureStage,
+          request_id: clientRequestId,
+          ...safeErrorLog(claimError),
+        });
+        return json({
+          success: false,
+          error_code: "REQUEST_LEDGER_UNAVAILABLE",
+          message: "ระบบป้องกันคำขอซ้ำยังไม่พร้อม กรุณาลองใหม่ภายหลัง",
+        }, 503);
+      }
+    }
+
+    failureStage = "quota_check";
     const { data: quotaData, error: quotaError } = await admin.rpc(
       "check_user_agent_quota",
       { p_user_id: user.id },
     );
     if (quotaError) {
-      return json({
+      return await completeRequest({
         success: false,
         error_code: "QUOTA_UNAVAILABLE",
         message: "ไม่สามารถตรวจสอบโควตาได้",
@@ -382,7 +626,7 @@ Deno.serve(async (req) => {
     }
     const quota = Array.isArray(quotaData) ? quotaData[0] : quotaData;
     if (!quota?.allowed) {
-      return json({
+      return await completeRequest({
         success: false,
         error_code: "QUOTA_EXCEEDED",
         message: `คุณใช้โควตาครบ ${
@@ -394,6 +638,7 @@ Deno.serve(async (req) => {
       }, 429);
     }
 
+    failureStage = "runtime_configuration";
     const { data: configuredRuntime, error: runtimeConfigError } = await admin
       .from("agent_runtime_config")
       .select(
@@ -426,6 +671,7 @@ Deno.serve(async (req) => {
 
     const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)
       .toISOString().slice(0, 10);
+    failureStage = "patient_context_read";
     const [
       profileResult,
       medicationsResult,
@@ -709,6 +955,7 @@ Deno.serve(async (req) => {
       adherence,
     };
     const snapshotHash = await sha256(JSON.stringify(snapshotPayload));
+    failureStage = "snapshot_insert";
     const { data: snapshot, error: snapshotError } = await admin.from(
       "patient_snapshots",
     ).insert({
@@ -719,7 +966,7 @@ Deno.serve(async (req) => {
       snapshot_payload: snapshotPayload,
     }).select("id").single();
     if (snapshotError) {
-      return json({
+      return await completeRequest({
         success: true,
         status: "rules_only",
         execution_mode: "rules_only",
@@ -745,6 +992,7 @@ Deno.serve(async (req) => {
       }, 200);
     }
 
+    failureStage = "run_insert";
     const { data: run, error: runError } = await admin.from("agent_runs")
       .insert({
         user_id: user.id,
@@ -758,6 +1006,7 @@ Deno.serve(async (req) => {
     if (runError) throw runError;
     runIdForFailure = run.id;
 
+    failureStage = "deterministic_tool_audit";
     await admin.from("agent_tool_calls").insert({
       run_id: run.id,
       sequence_number: 1,
@@ -797,6 +1046,7 @@ Deno.serve(async (req) => {
         ? "urgent_escalation"
         : "information";
       let requiresFollowUp = intakeDecision.requiresFollowUp;
+      const intakeProfile = intakeDecision.profile;
 
       await admin.from("agent_tool_calls").insert({
         run_id: run.id,
@@ -815,6 +1065,7 @@ Deno.serve(async (req) => {
         output_result: {
           decision: intakeDecision.kind,
           conversation_mode: intakeDecision.conversationMode,
+          intake_profile: intakeProfile?.id,
         },
       });
 
@@ -823,12 +1074,21 @@ Deno.serve(async (req) => {
           `${row.category}: ${row.finding}`
         ).join("\n");
         const modelHistory: ClinicalChatTurn[] = chatHistory.slice(-8);
+        const intakeProfileContext = intakeProfile
+          ? [
+            `หัวข้ออาการที่ระบบคัดกรองจำแนกเบื้องต้น: ${intakeProfile.title}`,
+            `เป้าหมายคำถาม: ${intakeProfile.summary}`,
+            "การจำแนกนี้มีไว้เลือกคำถามเท่านั้น ไม่ใช่การวินิจฉัยโรค",
+          ].join("\n")
+          : "ยังจำแนกหัวข้ออาการไม่ได้ ให้ถามแบบทั่วไปโดยไม่สมมุติตำแหน่งหรือสาเหตุ";
         const systemPrompt = intakeDecision.conversationMode ===
             "symptom_intake"
           ? [
             "คุณคือ AI Care Agent สำหรับซักประวัติอาการและจัดระเบียบข้อมูลยา ไม่ใช่แพทย์และไม่วินิจฉัยโรค",
+            intakeProfileContext,
             "ใช้ประวัติสนทนาทั้งหมดและผลคัดกรองที่ให้มา อย่าถามซ้ำในสิ่งที่ผู้ใช้ตอบชัดเจนแล้ว",
-            "ก่อนกล่าวถึงทางเลือกเรื่องยา ต้องมีข้อมูลอย่างน้อย: ตำแหน่งและข้างที่เป็น, เวลาเริ่มและระยะเวลา, ลักษณะ/ความรุนแรง 0-10, เหตุบาดเจ็บหรือกิจกรรมก่อนเกิด, อาการร่วมและสัญญาณอันตราย, สิ่งที่ลองทำแล้ว",
+            "ก่อนกล่าวถึงทางเลือกเรื่องยา ต้องมีข้อมูลอย่างน้อย: อาการหลักและตำแหน่ง, เวลาเริ่มและระยะเวลา, ลักษณะ/ความรุนแรง 0-10, ปัจจัยกระตุ้นที่เกี่ยวข้องกับอาการนั้น, อาการร่วมและสัญญาณอันตราย, สิ่งที่ลองทำแล้ว",
+            "ปรับคำถามให้ตรงกับหัวข้ออาการ ห้ามถามเรื่องขา การหกล้ม หรือการเดินลงน้ำหนัก เว้นแต่ข้อความผู้ใช้เกี่ยวกับกล้ามเนื้อ ข้อ แขนขา หรือการบาดเจ็บจริง",
             "หากข้อมูลยังไม่พอ ให้ขึ้นต้นว่า 'ขอถามเพิ่มก่อนประเมินเรื่องยา:' แล้วถามเฉพาะ 1-4 ข้อที่สำคัญที่สุด ห้ามเอ่ยชื่อยาเพื่อแนะนำให้เริ่มใช้",
             "หากข้อมูลพอ ให้ขึ้นต้นว่า 'สรุปการคัดกรอง:' สรุปเฉพาะข้อมูลที่ผู้ใช้บอก ระดับความเร่งด่วน และขั้นตอนถัดไปที่ปลอดภัย โดยอาจแนะนำการดูแลตนเองที่ไม่ใช้ยาและการติดต่อแพทย์หรือเภสัชกร",
             "ห้ามกำหนดขนาดยา ห้ามสั่งเริ่ม เพิ่ม ลด หยุด หรือเปลี่ยนยา ห้ามรับรองการวินิจฉัยหรือความปลอดภัย และอย่าเดาข้อมูลที่ผู้ใช้ยังไม่ตอบ",
@@ -860,25 +1120,34 @@ Deno.serve(async (req) => {
         executionModel = safeCompletion?.model;
         if (safeCompletion) {
           executionMode = "live";
-          requiresFollowUp = /^ขอถามเพิ่มก่อนประเมินเรื่องยา:/u.test(
-            safeCompletion.text,
-          );
-          responseType = requiresFollowUp
-            ? "clarifying_questions"
-            : "clinical_screening_summary";
+          if (intakeDecision.kind === "clarify") {
+            requiresFollowUp = true;
+            responseType = "clarifying_questions";
+          } else {
+            requiresFollowUp = /^ขอถามเพิ่มก่อนประเมินเรื่องยา:/u.test(
+              safeCompletion.text,
+            );
+            responseType = requiresFollowUp
+              ? "clarifying_questions"
+              : "clinical_screening_summary";
+          }
         }
       }
       if (!reply) {
-        reply = intakeDecision.conversationMode === "symptom_intake"
+        reply = intakeDecision.kind === "clarify"
+          ? `ระบบได้เลือกแบบซักอาการ “${
+            intakeProfile?.title ?? "อาการทั่วไป"
+          }” เพื่อรวบรวมข้อมูลที่เกี่ยวข้องก่อนประเมินเรื่องยา กรุณาตอบแบบฟอร์มที่เปิดขึ้น โดยยังไม่เริ่มหรือปรับยาเอง`
+          : intakeDecision.conversationMode === "symptom_intake"
           ? "ขอบคุณสำหรับข้อมูลเพิ่มเติม ขณะนี้ระบบอยู่ในโหมดกฎความปลอดภัยและยังไม่สามารถประเมินอาการหรือเลือกยาให้ได้อย่างน่าเชื่อถือ กรุณานำข้อมูลอาการนี้พร้อมรายการยา โรคประจำตัว และประวัติแพ้ยาไปสอบถามแพทย์หรือเภสัชกร โดยอย่าเริ่มหรือปรับยาเอง"
           : "ระบบไม่มีข้อมูลเพียงพอสำหรับตอบคำถามนี้อย่างปลอดภัย โปรดตรวจฉลากยาและสอบถามแพทย์หรือเภสัชกร โดยอย่าปรับยาเอง";
-        requiresFollowUp = false;
+        requiresFollowUp = intakeDecision.kind === "clarify";
       }
       await admin.from("agent_runs").update({
         status: "completed",
         stop_reason: executionMode === "live" ? "completed" : "rules_only",
       }).eq("id", run.id);
-      return json({
+      return await completeRequest({
         success: true,
         runId: run.id,
         reply,
@@ -887,6 +1156,7 @@ Deno.serve(async (req) => {
         response_type: responseType,
         conversation_mode: intakeDecision.conversationMode,
         requires_follow_up: requiresFollowUp,
+        intake_profile: intakeProfile,
         quota_remaining: quota.current_tier === "admin"
           ? 9999
           : Math.max(0, Number(quota.quota_remaining) - 1),
@@ -931,6 +1201,7 @@ Deno.serve(async (req) => {
       unchangedTreatment: true,
     };
 
+    failureStage = "summary_insert";
     const { error: summaryError } = await admin.from("agent_summaries").insert({
       id: summaryPayload.summaryId,
       user_id: user.id,
@@ -945,7 +1216,7 @@ Deno.serve(async (req) => {
       stop_reason: executionMode === "live" ? "completed" : "rules_only",
     }).eq("id", run.id);
 
-    return json({
+    return await completeRequest({
       success: true,
       runId: run.id,
       status: "completed",
@@ -964,13 +1235,24 @@ Deno.serve(async (req) => {
         .update({ status: "failed", stop_reason: "internal_error" })
         .eq("id", runIdForFailure);
     }
+    if (adminForFailure && requestLedgerIdForFailure) {
+      await adminForFailure
+        .from("agent_request_ledger")
+        .update({
+          status: "failed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", requestLedgerIdForFailure);
+    }
     console.error(
       "[AgentRun] Request failed without logging patient content:",
-      error instanceof Error ? error.message : String(error),
+      { stage: failureStage, ...safeErrorLog(error) },
     );
     return json({
       error: "Internal Server Error",
+      error_code: "AGENT_INTERNAL_ERROR",
       message: "ระบบ AI Agent ไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง",
+      client_request_id: clientRequestIdForFailure,
     }, 500);
   }
 });

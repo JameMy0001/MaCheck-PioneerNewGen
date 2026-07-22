@@ -1,4 +1,5 @@
 import {
+  buildClinicalIntakeProfile,
   evaluateClinicalIntake,
   isSymptomMedicineRequest,
   sanitizeClinicalHistory,
@@ -19,7 +20,33 @@ Deno.test("starts symptom intake before answering a medicine request", () => {
   assertEquals(isSymptomMedicineRequest("วันนี้ปวดขา กินยาอะไร"), true);
   assertEquals(result.kind, "clarify");
   assertEquals(result.requiresFollowUp, true);
-  assertEquals(result.reply?.includes("ปวดระดับ 0–10"), true);
+  assertEquals(result.profile?.id, "musculoskeletal");
+  assertEquals(result.reply, undefined);
+});
+
+Deno.test("selects a headache intake before the model asks follow-up questions", () => {
+  const result = evaluateClinicalIntake(
+    "ฉันปวดหัวมาก กินยาอะไรดี",
+    [],
+    "general",
+  );
+  assertEquals(result.kind, "clarify");
+  assertEquals(result.profile?.id, "headache");
+  assertEquals(result.profile?.locationPlaceholder.includes("ขมับ"), true);
+  assertEquals(
+    result.profile?.triggerPlaceholder.includes("กระแทกศีรษะ"),
+    true,
+  );
+});
+
+Deno.test("uses symptom-specific profiles instead of a fixed leg form", () => {
+  assertEquals(buildClinicalIntakeProfile("ปวดท้องกินยาอะไร").id, "abdominal");
+  assertEquals(
+    buildClinicalIntakeProfile("ไอและมีไข้ควรกินยาอะไร").id,
+    "respiratory",
+  );
+  assertEquals(buildClinicalIntakeProfile("มีผื่นควรใช้ยาอะไร").id, "skin");
+  assertEquals(buildClinicalIntakeProfile("เวียนหัวกินยาอะไรดี").id, "general");
 });
 
 Deno.test("continues an active intake with conversation context", () => {
@@ -55,6 +82,16 @@ Deno.test("escalates an affirmed emergency signal before model use", () => {
     "ขาบวมข้างเดียวและตอนนี้หายใจลำบาก",
     [],
     "symptom_intake",
+  );
+  assertEquals(result.kind, "emergency");
+  assertEquals(result.reply?.includes("1669"), true);
+});
+
+Deno.test("escalates a sudden severe headache before model use", () => {
+  const result = evaluateClinicalIntake(
+    "ปวดหัวฉับพลันและรุนแรงที่สุดในชีวิต กินยาอะไรดี",
+    [],
+    "general",
   );
   assertEquals(result.kind, "emergency");
   assertEquals(result.reply?.includes("1669"), true);

@@ -10,6 +10,29 @@ export interface ClinicalIntakeDecision {
   conversationMode: ClinicalConversationMode;
   reply?: string;
   requiresFollowUp: boolean;
+  profile?: ClinicalIntakeProfile;
+}
+
+export interface ClinicalIntakeProfile {
+  id:
+    | "headache"
+    | "abdominal"
+    | "musculoskeletal"
+    | "respiratory"
+    | "skin"
+    | "general";
+  title: string;
+  summary: string;
+  locationLabel: string;
+  locationPlaceholder: string;
+  severityLabel: string;
+  onsetPlaceholder: string;
+  sensationPlaceholder: string;
+  triggerLabel: string;
+  triggerPlaceholder: string;
+  associatedOptions: string[];
+  emergencyOptions: string[];
+  triedPlaceholder: string;
 }
 
 const symptomTerms = [
@@ -43,6 +66,8 @@ const emergencyPatterns = [
   /ชัก(?:เกร็ง)?/,
   /ปากบวม|ลิ้นบวม|คอบวม/,
   /หน้าเบี้ยว/,
+  /ปวด(?:หัว|ศีรษะ).{0,24}(?:ฉับพลัน|ทันที).{0,24}(?:รุนแรง|ที่สุด)/,
+  /ปวด(?:หัว|ศีรษะ).{0,24}(?:รุนแรงที่สุด|ปวดที่สุดในชีวิต)/,
 ];
 
 const urgentPatterns = [
@@ -58,6 +83,214 @@ const negationPrefix = /(?:ไม่มี|ไม่ได้มี|ไม่ไ
 
 function normalize(value: unknown) {
   return String(value ?? "").trim().toLocaleLowerCase("th");
+}
+
+const noAssociatedSymptoms = "ไม่มีอาการเหล่านี้";
+
+const intakeProfiles: Record<
+  ClinicalIntakeProfile["id"],
+  ClinicalIntakeProfile
+> = {
+  headache: {
+    id: "headache",
+    title: "อาการปวดศีรษะ",
+    summary: "คำถามต่อไปนี้เน้นรูปแบบการปวดศีรษะ อาการทางระบบประสาท และสัญญาณอันตราย",
+    locationLabel: "ปวดบริเวณใดของศีรษะ ข้างเดียวหรือสองข้าง?",
+    locationPlaceholder: "เช่น ขมับซ้าย รอบตา หน้าผาก หรือท้ายทอยสองข้าง",
+    severityLabel: "ระดับความปวดศีรษะ 0–10",
+    onsetPlaceholder: "เช่น เริ่มฉับพลันเมื่อ 2 ชั่วโมงก่อน หรือค่อย ๆ ปวดมา 2 วัน",
+    sensationPlaceholder: "เช่น ตุบ ๆ ตื้อ ๆ บีบรัด หรือปวดแปลบ",
+    triggerLabel: "ก่อนเริ่มปวดมีเหตุการณ์หรือปัจจัยกระตุ้นอะไรไหม?",
+    triggerPlaceholder: "เช่น อดนอน เครียด ขาดน้ำ กระแทกศีรษะ หรือไม่มี",
+    associatedOptions: [
+      "คลื่นไส้",
+      "อาเจียน",
+      "แพ้แสงหรือเสียง",
+      "ตามัวหรือเห็นภาพผิดปกติ",
+      "ชา หรืออ่อนแรง",
+      "มีไข้หรือคอแข็ง",
+      noAssociatedSymptoms,
+    ],
+    emergencyOptions: [
+      "ปวดรุนแรงฉับพลันที่สุดในชีวิต",
+      "หน้าเบี้ยว พูดไม่ชัด หรือแขนขาอ่อนแรง",
+      "ชัก หมดสติ หรือสับสนมาก",
+      "หลังศีรษะกระแทกรุนแรง",
+      noAssociatedSymptoms,
+    ],
+    triedPlaceholder: "เช่น พักในห้องมืด ดื่มน้ำ ใช้ยาอะไรไปแล้ว หรือยังไม่ได้ลอง",
+  },
+  abdominal: {
+    id: "abdominal",
+    title: "อาการปวดท้อง",
+    summary: "คำถามต่อไปนี้เน้นตำแหน่งปวด ความสัมพันธ์กับอาหาร การขับถ่าย และสัญญาณเลือดออก",
+    locationLabel: "ปวดท้องบริเวณใด และปวดย้ายตำแหน่งหรือไม่?",
+    locationPlaceholder: "เช่น ลิ้นปี่ ท้องขวาล่าง รอบสะดือ หรือทั่วท้อง",
+    severityLabel: "ระดับความปวดท้อง 0–10",
+    onsetPlaceholder: "เช่น เริ่มหลังอาหารเมื่อ 3 ชั่วโมงก่อน เป็นมา 1 วัน",
+    sensationPlaceholder: "เช่น บิดเกร็ง แสบร้อน จุกแน่น หรือปวดแปลบ",
+    triggerLabel: "ก่อนเริ่มปวดกินอะไร ทำอะไร หรือมีปัจจัยเกี่ยวข้องอะไรไหม?",
+    triggerPlaceholder: "เช่น อาหารมื้อใหญ่ แอลกอฮอล์ เดินทาง ประจำเดือน หรือไม่มี",
+    associatedOptions: [
+      "คลื่นไส้หรืออาเจียน",
+      "ท้องเสีย",
+      "ท้องผูก",
+      "มีไข้",
+      "ปัสสาวะแสบขัด",
+      "มีเลือดออกผิดปกติ",
+      noAssociatedSymptoms,
+    ],
+    emergencyOptions: [
+      "ปวดรุนแรงฉับพลันหรือท้องแข็ง",
+      "อาเจียนเป็นเลือดหรือถ่ายดำ",
+      "หน้ามืด เป็นลม หรือเหงื่อแตกมาก",
+      "อาจตั้งครรภ์และมีปวดรุนแรงหรือเลือดออก",
+      noAssociatedSymptoms,
+    ],
+    triedPlaceholder: "เช่น พัก ดื่มน้ำ งดอาหารบางชนิด ใช้ยาอะไรไปแล้ว หรือยังไม่ได้ลอง",
+  },
+  musculoskeletal: {
+    id: "musculoskeletal",
+    title: "อาการปวดกล้ามเนื้อ ข้อ หรือแขนขา",
+    summary:
+      "คำถามต่อไปนี้เน้นตำแหน่ง การบาดเจ็บ การใช้งาน และการไหลเวียนเลือดหรือเส้นประสาท",
+    locationLabel: "ปวดหรือมีอาการบริเวณใด ข้างเดียวหรือสองข้าง?",
+    locationPlaceholder: "เช่น น่องขาขวา เข่าซ้าย ไหล่ หรือหลังส่วนล่าง",
+    severityLabel: "ระดับความปวด 0–10",
+    onsetPlaceholder: "เช่น เริ่มหลังยกของเมื่อวาน เป็นมา 1 วัน",
+    sensationPlaceholder: "เช่น ปวดตื้อ แปลบ เกร็ง หรือปวดเมื่อขยับ",
+    triggerLabel: "ก่อนเกิดอาการทำกิจกรรมอะไรหรือมีอุบัติเหตุไหม?",
+    triggerPlaceholder: "เช่น วิ่ง หกล้ม ยกของ เดินทางนาน หรือไม่มี",
+    associatedOptions: [
+      "บวม",
+      "แดงหรือร้อน",
+      "ชา",
+      "อ่อนแรง",
+      "ขยับหรือเดินลงน้ำหนักไม่ได้",
+      "มีไข้",
+      noAssociatedSymptoms,
+    ],
+    emergencyOptions: [
+      "หายใจลำบากหรือเจ็บหน้าอก",
+      "แขนขาซีด เย็น เขียว หรือไม่มีความรู้สึก",
+      "บาดเจ็บรุนแรงหรือผิดรูป",
+      "หน้ามืดหรือหมดสติ",
+      noAssociatedSymptoms,
+    ],
+    triedPlaceholder: "เช่น พัก ประคบ ใช้ยาอะไรไปแล้ว หรือยังไม่ได้ลอง",
+  },
+  respiratory: {
+    id: "respiratory",
+    title: "อาการทางเดินหายใจ คอ หรือไข้",
+    summary: "คำถามต่อไปนี้เน้นการหายใจ ไข้ ไอ เสมหะ และความรุนแรงของอาการ",
+    locationLabel: "อาการหลักอยู่บริเวณใด และอาการใดรบกวนมากที่สุด?",
+    locationPlaceholder: "เช่น เจ็บคอ คัดจมูก ไอจากหน้าอก หรือมีไข้",
+    severityLabel: "ระดับความรุนแรงของอาการ 0–10",
+    onsetPlaceholder: "เช่น เริ่มเมื่อคืน เป็นมา 12 ชั่วโมง",
+    sensationPlaceholder: "เช่น ไอแห้ง ไอมีเสมหะ แสบคอ หรือแน่นหน้าอก",
+    triggerLabel: "ก่อนเริ่มอาการมีสัมผัสผู้ป่วย ฝุ่น ควัน หรือสารก่อภูมิแพ้ไหม?",
+    triggerPlaceholder: "เช่น คนใกล้ชิดป่วย เจอฝุ่น ควัน อากาศเย็น หรือไม่ทราบ",
+    associatedOptions: [
+      "มีไข้",
+      "ไอมีเสมหะ",
+      "น้ำมูกหรือคัดจมูก",
+      "เจ็บคอ",
+      "หอบหรือมีเสียงหวีด",
+      "ปวดเมื่อยมาก",
+      noAssociatedSymptoms,
+    ],
+    emergencyOptions: [
+      "หายใจลำบากหรือพูดไม่เป็นประโยค",
+      "เจ็บหรือแน่นหน้าอก",
+      "ริมฝีปากเขียวหรือซีดมาก",
+      "หมดสติ สับสนมาก หรือปลุกไม่ตื่น",
+      noAssociatedSymptoms,
+    ],
+    triedPlaceholder: "เช่น พัก ดื่มน้ำ วัดไข้ ใช้ยาอะไรไปแล้ว หรือยังไม่ได้ลอง",
+  },
+  skin: {
+    id: "skin",
+    title: "อาการผิวหนัง ผื่น หรือบวม",
+    summary: "คำถามต่อไปนี้เน้นตำแหน่ง ลักษณะผื่น สิ่งสัมผัสใหม่ และอาการแพ้รุนแรง",
+    locationLabel: "ผื่น บวม หรืออาการผิวหนังอยู่บริเวณใด และกระจายหรือไม่?",
+    locationPlaceholder: "เช่น แขนทั้งสองข้าง ใบหน้า หรือเริ่มที่ลำตัวแล้วลาม",
+    severityLabel: "ระดับความรุนแรงหรือความรบกวน 0–10",
+    onsetPlaceholder: "เช่น เริ่มหลังอาหาร 30 นาที หรือเป็นมา 3 วัน",
+    sensationPlaceholder: "เช่น คัน แสบ เจ็บ เป็นปื้น ตุ่มน้ำ หรือลอก",
+    triggerLabel: "ก่อนเกิดอาการได้ใช้ยา อาหาร หรือผลิตภัณฑ์ใหม่ไหม?",
+    triggerPlaceholder: "เช่น เริ่มยาใหม่ กินอาหารใหม่ เปลี่ยนสบู่ หรือไม่ทราบ",
+    associatedOptions: [
+      "คัน",
+      "เจ็บหรือแสบ",
+      "บวม",
+      "ตุ่มน้ำหรือผิวลอก",
+      "มีไข้",
+      "มีหนอง",
+      noAssociatedSymptoms,
+    ],
+    emergencyOptions: [
+      "ปาก ลิ้น คอ หรือใบหน้าบวม",
+      "หายใจลำบากหรือเสียงแหบฉับพลัน",
+      "ผื่นลามเร็วร่วมกับตุ่มพองหรือผิวลอก",
+      "หน้ามืด หมดสติ หรืออ่อนแรงมาก",
+      noAssociatedSymptoms,
+    ],
+    triedPlaceholder: "เช่น ล้างบริเวณผื่น หยุดผลิตภัณฑ์ใหม่ ใช้ยาอะไรไปแล้ว หรือยังไม่ได้ลอง",
+  },
+  general: {
+    id: "general",
+    title: "อาการที่ต้องซักข้อมูลเพิ่มเติม",
+    summary: "คำถามต่อไปนี้เป็นการคัดกรองทั่วไปและจะไม่สมมุติว่าอาการเกิดจากขาหรือการบาดเจ็บ",
+    locationLabel: "มีอาการอะไร และเกิดที่บริเวณใดของร่างกาย?",
+    locationPlaceholder: "เช่น เวียนศีรษะ เจ็บคอ ปวดหลัง หรือคลื่นไส้",
+    severityLabel: "ระดับความรุนแรงของอาการ 0–10",
+    onsetPlaceholder: "เช่น เริ่มเมื่อเช้า เป็นต่อเนื่องมา 4 ชั่วโมง",
+    sensationPlaceholder: "อธิบายว่าอาการเป็นแบบใด เป็นตลอดหรือเป็น ๆ หาย ๆ",
+    triggerLabel: "ก่อนเริ่มอาการมีเหตุการณ์ กิจกรรม อาหาร หรือยาใหม่อะไรไหม?",
+    triggerPlaceholder: "เช่น ออกแรง อดนอน กินอาหาร เริ่มยาใหม่ หรือไม่มี",
+    associatedOptions: [
+      "มีไข้",
+      "คลื่นไส้หรืออาเจียน",
+      "ชา",
+      "อ่อนแรง",
+      "บวม",
+      "อาการแย่ลงเร็ว",
+      noAssociatedSymptoms,
+    ],
+    emergencyOptions: [
+      "หายใจลำบาก",
+      "เจ็บหรือแน่นหน้าอก",
+      "ชัก หมดสติ หรือสับสนมาก",
+      "หน้าเบี้ยว พูดไม่ชัด หรือแขนขาอ่อนแรง",
+      noAssociatedSymptoms,
+    ],
+    triedPlaceholder: "ระบุสิ่งที่ลองทำหรือยาที่ใช้ไปแล้ว หรือพิมพ์ว่า ยังไม่ได้ลอง",
+  },
+};
+
+export function buildClinicalIntakeProfile(
+  message: string,
+): ClinicalIntakeProfile {
+  const query = normalize(message);
+  if (/ปวด(?:หัว|ศีรษะ)|เจ็บศีรษะ|ไมเกรน/u.test(query)) {
+    return intakeProfiles.headache;
+  }
+  if (/ปวดท้อง|เจ็บท้อง|จุกท้อง|แน่นท้อง|ท้องอืด/u.test(query)) {
+    return intakeProfiles.abdominal;
+  }
+  if (/ไอ|เจ็บคอ|คัดจมูก|น้ำมูก|มีไข้|เป็นไข้|หอบ|เสียงหวีด/u.test(query)) {
+    return intakeProfiles.respiratory;
+  }
+  if (/ผื่น|คัน|ลมพิษ|ผิว(?:แดง|บวม|ลอก)|ตุ่มน้ำ/u.test(query)) {
+    return intakeProfiles.skin;
+  }
+  if (
+    /ปวด(?:ขา|เข่า|น่อง|ข้อเท้า|เท้า|แขน|ไหล่|ข้อศอก|ข้อมือ|หลัง|เอว|คอ)|เจ็บ(?:ขา|เข่า|น่อง|ข้อเท้า|เท้า|แขน|ไหล่|ข้อศอก|ข้อมือ|หลัง|เอว|คอ)/u
+      .test(query)
+  ) {
+    return intakeProfiles.musculoskeletal;
+  }
+  return intakeProfiles.general;
 }
 
 function hasAffirmedPattern(text: string, pattern: RegExp) {
@@ -91,18 +324,6 @@ export function sanitizeClinicalHistory(value: unknown): ClinicalChatTurn[] {
       .slice(0, 2000);
     return content ? [{ role, content }] : [];
   });
-}
-
-function initialClarifyingReply() {
-  return [
-    "ก่อนประเมินเรื่องยา ขอถามอาการเพิ่มเติมเพื่อคัดกรองความเร่งด่วนก่อนครับ",
-    "1. ปวดตรงไหน ข้างเดียวหรือสองข้าง และปวดระดับ 0–10 เท่าไร?",
-    "2. เริ่มปวดเมื่อไร เป็นตลอดหรือเป็น ๆ หาย ๆ และปวดแบบตื้อ แปลบ แสบ หรือเกร็ง?",
-    "3. ก่อนเริ่มอาการมีหกล้ม กระแทก ออกกำลังหนัก เดินทางนาน ผ่าตัด หรือนอนนิ่งนานไหม?",
-    "4. มีบวม แดง ร้อน ชา อ่อนแรง ไข้ หรือเดินลงน้ำหนักไม่ได้ไหม?",
-    "5. ตอนนี้มีหายใจลำบาก เจ็บหน้าอก หน้ามืด หรือหมดสติไหม?",
-    "ตอบเป็นข้อ ๆ เท่าที่ทราบได้เลย หากมีอาการในข้อ 5 ให้ขอความช่วยเหลือฉุกเฉินทันที ไม่ต้องรอคำตอบจาก AI",
-  ].join("\n");
 }
 
 export function evaluateClinicalIntake(
@@ -146,7 +367,7 @@ export function evaluateClinicalIntake(
       kind: "clarify",
       conversationMode: "symptom_intake",
       requiresFollowUp: true,
-      reply: initialClarifyingReply(),
+      profile: buildClinicalIntakeProfile(message),
     };
   }
 
@@ -155,6 +376,7 @@ export function evaluateClinicalIntake(
       kind: "continue",
       conversationMode: "symptom_intake",
       requiresFollowUp: true,
+      profile: buildClinicalIntakeProfile(userText),
     };
   }
 

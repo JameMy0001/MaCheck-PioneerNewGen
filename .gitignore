@@ -14,6 +14,8 @@ Pods/
 # Build output and caches
 dist/
 build/
+!prototypes/adherence-intelligence/build/
+!prototypes/adherence-intelligence/build/sites-vite-plugin.ts
 .expo/
 .gradle/
 .cxx/
@@ -35,3 +37,6 @@ tmp/
 
 # Backup of the empty nested mobile repository metadata
 .mobile-git-backup/
+
+# Backups of empty nested repository metadata
+.nested-git-backups/

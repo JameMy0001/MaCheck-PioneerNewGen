@@ -18,8 +18,10 @@ import { useRouter } from 'expo-router';
 import { ClinicalIntakeModal } from '@/components/agent/clinical-intake-modal';
 import { useFontMultiplier } from '@/components/ui';
 import { colors } from '@/constants/theme';
+import { createAgentRequestId } from '@/services/agent-network';
 import {
   type AgentChatTurn,
+  type AgentClinicalIntakeProfile,
   type AgentConnectivityResult,
   type AgentConversationMode,
   checkAgentConnectivity,
@@ -39,6 +41,22 @@ interface ChatMessage {
   text: string;
   contextText?: string;
   timestamp: string;
+}
+
+interface PendingClinicalSubmission {
+  structuredAnswer: string;
+  displayText: string;
+  requestId: string;
+  history: AgentChatTurn[];
+  conversationMode: AgentConversationMode;
+}
+
+interface SendMessageOptions {
+  requestId?: string;
+  history?: AgentChatTurn[];
+  conversationMode?: AgentConversationMode;
+  appendUserMessage?: boolean;
+  clinicalSubmission?: boolean;
 }
 
 const quickPrompts = [
@@ -96,6 +114,9 @@ export default function AgentRunScreen() {
   const [conversationMode, setConversationMode] = useState<AgentConversationMode>('general');
   const [showClinicalIntakeModal, setShowClinicalIntakeModal] = useState(false);
   const [intakeOriginalQuestion, setIntakeOriginalQuestion] = useState('');
+  const [intakeProfile, setIntakeProfile] = useState<AgentClinicalIntakeProfile | undefined>();
+  const [intakeExecutionMode, setIntakeExecutionMode] = useState<'live' | 'rules_only'>('rules_only');
+  const [pendingClinicalSubmission, setPendingClinicalSubmission] = useState<PendingClinicalSubmission | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -187,9 +208,13 @@ export default function AgentRunScreen() {
     }
   };
 
-  const handleSendMessage = async (textToSend?: string, displayText?: string) => {
+  const handleSendMessage = async (
+    textToSend?: string,
+    displayText?: string,
+    options: SendMessageOptions = {},
+  ) => {
     const text = (textToSend || inputText).trim();
-    if (!text) return;
+    if (!text || isTyping) return;
 
     const userMsg: ChatMessage = {
       id: nextChatMessageId('user'),
@@ -199,15 +224,31 @@ export default function AgentRunScreen() {
       timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
     };
 
-    const conversationHistory: AgentChatTurn[] = chatMessages
+    const conversationHistory: AgentChatTurn[] = options.history ?? chatMessages
       .filter((message) => message.id !== 'welcome')
       .slice(-10)
       .map((message) => ({
         role: message.sender === 'user' ? 'user' : 'assistant',
         content: message.contextText ?? message.text,
       }));
+    const requestId = options.requestId ?? createAgentRequestId(
+      options.clinicalSubmission ? 'intake' : 'chat',
+    );
+    const requestConversationMode = options.conversationMode ?? conversationMode;
+    const submission = options.clinicalSubmission
+      ? {
+          structuredAnswer: text,
+          displayText: displayText ?? text,
+          requestId,
+          history: conversationHistory,
+          conversationMode: requestConversationMode,
+        }
+      : null;
 
-    setChatMessages((prev) => [...prev, userMsg]);
+    if (options.appendUserMessage !== false) {
+      setChatMessages((prev) => [...prev, userMsg]);
+    }
+    if (submission) setPendingClinicalSubmission(submission);
     setInputText('');
     setIsTyping(true);
 
@@ -217,18 +258,26 @@ export default function AgentRunScreen() {
 
     try {
       if (__DEV__ && outageMode) throw new Error('AGENT_ONLINE_UNAVAILABLE');
-      const response = await generateAIChatReplyLive(text, conversationHistory, conversationMode);
+      const response = await generateAIChatReplyLive(
+        text,
+        conversationHistory,
+        requestConversationMode,
+        requestId,
+      );
+      if (submission) setPendingClinicalSubmission(null);
       setConversationMode(response.conversationMode);
-      const shouldOpenIntake = response.responseType === 'clarifying_questions' && conversationMode === 'general';
+      const shouldOpenIntake = response.responseType === 'clarifying_questions' && requestConversationMode === 'general';
       if (shouldOpenIntake) {
         setIntakeOriginalQuestion(text);
+        setIntakeProfile(response.intakeProfile);
+        setIntakeExecutionMode(response.executionMode);
         setShowClinicalIntakeModal(true);
       }
       const agentMsg: ChatMessage = {
         id: nextChatMessageId('agent'),
         sender: 'agent',
         text: shouldOpenIntake
-          ? 'ระบบคัดกรองออนไลน์ต้องการข้อมูลอาการเพิ่มเติม กรุณากรอกแบบซักอาการที่เปิดขึ้นมา แล้วระบบจะส่งข้อมูลทั้งหมดให้ AI Agent ประเมินพร้อมกันครับ'
+          ? `${response.executionMode === 'live' ? 'AI Live' : 'ระบบคัดกรอง'} วิเคราะห์หัวข้ออาการเบื้องต้นเป็น “${response.intakeProfile?.title ?? 'อาการทั่วไป'}” และเตรียมคำถามที่เกี่ยวข้องแล้ว กรุณากรอกแบบซักอาการที่เปิดขึ้นมาครับ`
           : response.text,
         contextText: response.text,
         timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
@@ -241,7 +290,9 @@ export default function AgentRunScreen() {
       const agentMsg: ChatMessage = {
         id: nextChatMessageId('agent'),
         sender: 'agent',
-        text: `${errorMessage}\nระบบจะไม่ประเมินอาการหรือแนะนำยาแบบออฟไลน์ กรุณาดึงหน้าจอลงเพื่อตรวจการเชื่อมต่อแล้วลองใหม่`,
+        text: submission
+          ? `${errorMessage}\nแบบซักอาการยังเก็บไว้ชั่วคราวในหน้านี้ กด “ลองส่งแบบซักอาการอีกครั้ง” ได้โดยระบบจะไม่ประมวลผลหรือหักโควตาซ้ำ`
+          : `${errorMessage}\nระบบจะไม่ประเมินอาการหรือแนะนำยาแบบออฟไลน์ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่`,
         timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
       };
       setChatMessages((prev) => [...prev, agentMsg]);
@@ -570,6 +621,7 @@ export default function AgentRunScreen() {
                     setConversationMode('general');
                     setChatMessages((messages) => messages.slice(0, 1));
                     setInputText('');
+                    setPendingClinicalSubmission(null);
                   }}
                 >
                   <Text style={styles.newConversationText}>เริ่มคำถามใหม่</Text>
@@ -577,8 +629,8 @@ export default function AgentRunScreen() {
               </View>
             ) : null}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-              {quickPrompts.map((prompt, i) => (
-                <TouchableOpacity key={i} style={styles.promptChip} onPress={() => handleSendMessage(prompt)}>
+              {quickPrompts.map((prompt) => (
+                <TouchableOpacity key={prompt} style={styles.promptChip} onPress={() => void handleSendMessage(prompt)}>
                   <Text style={styles.promptChipText}>{prompt}</Text>
                 </TouchableOpacity>
               ))}
@@ -614,6 +666,34 @@ export default function AgentRunScreen() {
             )}
           </ScrollView>
 
+          {pendingClinicalSubmission ? (
+            <View style={styles.pendingSubmissionCard} accessibilityRole="alert">
+              <View style={{ flex: 1 }}>
+                <Text style={styles.pendingSubmissionTitle}>การส่งแบบซักอาการยังไม่สำเร็จ</Text>
+                <Text style={styles.pendingSubmissionText}>ข้อมูลยังอยู่ในหน้านี้ และจะใช้รหัสคำขอเดิมเพื่อป้องกันการประมวลผลซ้ำ</Text>
+              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="ลองส่งแบบซักอาการอีกครั้ง"
+                disabled={isTyping}
+                style={[styles.retrySubmissionButton, isTyping && styles.sendBtnDisabled]}
+                onPress={() => void handleSendMessage(
+                  pendingClinicalSubmission.structuredAnswer,
+                  pendingClinicalSubmission.displayText,
+                  {
+                    requestId: pendingClinicalSubmission.requestId,
+                    history: pendingClinicalSubmission.history,
+                    conversationMode: pendingClinicalSubmission.conversationMode,
+                    appendUserMessage: false,
+                    clinicalSubmission: true,
+                  },
+                )}
+              >
+                <Text style={styles.retrySubmissionText}>{isTyping ? 'กำลังลองใหม่…' : 'ลองส่งอีกครั้ง'}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           {/* Input Bar */}
           <View style={styles.inputContainer}>
             <TextInput
@@ -622,12 +702,13 @@ export default function AgentRunScreen() {
               onChangeText={setInputText}
               placeholder="พิมพ์คำถามเรื่องยา อาการแพ้ หรือของแสลง..."
               placeholderTextColor={colors.muted}
-              onSubmitEditing={() => handleSendMessage()}
+              onSubmitEditing={() => void handleSendMessage()}
+              editable={!isTyping}
             />
             <TouchableOpacity
-              style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
-              onPress={() => handleSendMessage()}
-              disabled={!inputText.trim()}
+              style={[styles.sendBtn, (!inputText.trim() || isTyping) && styles.sendBtnDisabled]}
+              onPress={() => void handleSendMessage()}
+              disabled={!inputText.trim() || isTyping}
             >
               <Text style={styles.sendBtnText}>ส่ง</Text>
             </TouchableOpacity>
@@ -639,13 +720,21 @@ export default function AgentRunScreen() {
       {showClinicalIntakeModal ? <ClinicalIntakeModal
           visible
           originalQuestion={intakeOriginalQuestion}
+          profile={intakeProfile}
+          analysisSource={intakeExecutionMode}
           onCancel={() => {
             setShowClinicalIntakeModal(false);
             setConversationMode('general');
+            setIntakeProfile(undefined);
           }}
           onSubmit={(structuredAnswer) => {
             setShowClinicalIntakeModal(false);
-            void handleSendMessage(structuredAnswer, '✓ ส่งแบบซักอาการให้ AI Agent แล้ว');
+            setIntakeProfile(undefined);
+            void handleSendMessage(
+              structuredAnswer,
+              '✓ ส่งแบบซักอาการให้ AI Agent แล้ว',
+              { clinicalSubmission: true },
+            );
           }}
         /> : null}
 
@@ -687,10 +776,23 @@ export default function AgentRunScreen() {
             </View>
 
             <View style={styles.sandboxContent}>
-              <View style={[styles.connectivityCard, connectivity.online ? styles.connectivityCardOnline : styles.connectivityCardOffline]}>
+              <View style={[
+                styles.connectivityCard,
+                connectivity.online
+                  ? styles.connectivityCardOnline
+                  : connectivity.code === 'NETWORK_ERROR'
+                    ? styles.connectivityCardDegraded
+                    : styles.connectivityCardOffline,
+              ]}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.sandboxLabel}>
-                    {connectivity.online ? '● Agent Server พร้อมใช้งาน' : '● Agent Server ยังไม่พร้อม'}
+                    {connectivity.online
+                      ? connectivity.mode === 'live'
+                        ? '● Agent Server พร้อมใช้งาน · AI Live'
+                        : '● Agent Server พร้อมใช้งาน · โหมดกฎ'
+                      : connectivity.code === 'NETWORK_ERROR'
+                        ? '● การเชื่อมต่อไม่เสถียร · กำลังรอตรวจใหม่'
+                        : '● Agent Server ยังไม่พร้อม'}
                   </Text>
                   <Text selectable style={styles.sandboxSub}>{connectivity.message}</Text>
                 </View>
@@ -1146,6 +1248,39 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     gap: 8,
   },
+  pendingSubmissionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.warningSoft,
+    borderTopWidth: 1,
+    borderTopColor: colors.warning,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  pendingSubmissionTitle: {
+    color: colors.text,
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  pendingSubmissionText: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  retrySubmissionButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  retrySubmissionText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 12,
+  },
   chatInput: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1258,6 +1393,10 @@ const styles = StyleSheet.create({
   connectivityCardOnline: {
     backgroundColor: colors.successSoft,
     borderColor: colors.success,
+  },
+  connectivityCardDegraded: {
+    backgroundColor: colors.warningSoft,
+    borderColor: colors.warning,
   },
   connectivityCardOffline: {
     backgroundColor: colors.dangerSoft,
