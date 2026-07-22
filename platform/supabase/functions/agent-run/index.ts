@@ -301,8 +301,16 @@ Deno.serve(async (req) => {
 
     const body = await parseBody(req);
     const intent = String(body.intent ?? "summary");
-    if (!["summary", "chat", "request_review"].includes(intent)) {
+    if (!["summary", "chat", "request_review", "health"].includes(intent)) {
       return json({ error: "Unsupported intent" }, 400);
+    }
+    if (intent === "health") {
+      return json({
+        success: true,
+        status: "ready",
+        service: "agent-run",
+        schema_version: "1.2",
+      });
     }
     const chatMessage = intent === "chat"
       ? String(body.message ?? "").trim().slice(0, 3000)

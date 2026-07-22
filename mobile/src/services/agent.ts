@@ -69,6 +69,24 @@ export interface AgentChatReply {
   requiresFollowUp: boolean;
 }
 
+export interface AgentConnectivityResult {
+  online: boolean;
+  code: 'READY' | 'NOT_CONFIGURED' | 'AUTH_REQUIRED' | 'HTTP_ERROR' | 'NETWORK_ERROR';
+  message: string;
+  status?: number;
+}
+
+class AgentServiceError extends Error {
+  constructor(
+    message: string,
+    readonly code: AgentConnectivityResult['code'],
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = 'AgentServiceError';
+  }
+}
+
 interface AgentQuotaResponse {
   allowed: boolean;
   quota_remaining: number;
@@ -95,13 +113,74 @@ function allergyMatchesMedicine(allergy: string, medicineId: string) {
 }
 
 async function invokeAgentFunction(body: Record<string, unknown>) {
-  if (!isSupabaseConfigured) throw new Error('AGENT_BACKEND_NOT_CONFIGURED');
+  if (!isSupabaseConfigured) {
+    throw new AgentServiceError('ยังไม่ได้ตั้งค่า Supabase สำหรับแอปนี้', 'NOT_CONFIGURED');
+  }
   const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session) throw new Error('AUTH_REQUIRED');
+  if (!sessionData.session) {
+    throw new AgentServiceError('ไม่พบเซสชันผู้ใช้ กรุณาเข้าสู่ระบบใหม่', 'AUTH_REQUIRED', 401);
+  }
 
   const { data, error } = await supabase.functions.invoke('agent-run', { body });
-  if (error) throw new Error(error.message || 'AGENT_REQUEST_FAILED');
+  if (error) {
+    const context = (error as { context?: unknown }).context;
+    const status = context instanceof Response ? context.status : undefined;
+    let serverMessage = '';
+    if (context instanceof Response) {
+      try {
+        const payload = await context.clone().json() as { message?: string; error?: string };
+        serverMessage = payload?.message || payload?.error || '';
+      } catch {
+        serverMessage = '';
+      }
+    }
+    throw new AgentServiceError(
+      serverMessage || error.message || 'ไม่สามารถเรียก AI Agent ได้',
+      status ? 'HTTP_ERROR' : 'NETWORK_ERROR',
+      status,
+    );
+  }
   return data as Record<string, any>;
+}
+
+export function getAgentErrorMessage(error: unknown) {
+  if (!(error instanceof AgentServiceError)) {
+    return 'ไม่สามารถเชื่อมต่อระบบคัดกรองออนไลน์ได้ กรุณาลองใหม่อีกครั้ง';
+  }
+  if (error.code === 'AUTH_REQUIRED') {
+    return 'เซสชันเข้าสู่ระบบหมดอายุ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่';
+  }
+  if (error.code === 'NOT_CONFIGURED') {
+    return 'Development build นี้ไม่มีค่าเชื่อมต่อ Supabase กรุณาปิด Metro แล้วเปิดใหม่หลังตรวจไฟล์ .env';
+  }
+  const reference = error.status ? `HTTP ${error.status}` : error.code;
+  return `${error.message} (${reference})`;
+}
+
+export async function checkAgentConnectivity(): Promise<AgentConnectivityResult> {
+  if (!isSupabaseConfigured) {
+    return { online: false, code: 'NOT_CONFIGURED', message: 'ไม่พบค่า Supabase ใน build นี้' };
+  }
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) {
+    return { online: false, code: 'AUTH_REQUIRED', message: 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่', status: 401 };
+  }
+  try {
+    const response = await invokeAgentFunction({ intent: 'health' });
+    return response.success
+      ? { online: true, code: 'READY', message: 'เชื่อมต่อ Agent Server สำเร็จ' }
+      : { online: false, code: 'HTTP_ERROR', message: 'Agent Server ตอบกลับไม่สมบูรณ์' };
+  } catch (error) {
+    if (error instanceof AgentServiceError) {
+      return {
+        online: false,
+        code: error.code,
+        message: getAgentErrorMessage(error),
+        status: error.status,
+      };
+    }
+    return { online: false, code: 'NETWORK_ERROR', message: 'ไม่สามารถติดต่อ Agent Server ได้' };
+  }
 }
 
 export async function generateAIChatReplyLive(

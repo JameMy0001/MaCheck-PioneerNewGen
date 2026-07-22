@@ -20,8 +20,11 @@ import { useFontMultiplier } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import {
   type AgentChatTurn,
+  type AgentConnectivityResult,
   type AgentConversationMode,
+  checkAgentConnectivity,
   fetchUserQuota,
+  getAgentErrorMessage,
   generateAIChatReplyLive,
   generateLocalAgentSummary,
   requestAgentReview,
@@ -80,6 +83,12 @@ export default function AgentRunScreen() {
   // Sandbox & Control Panel Modal State
   const [showSandboxModal, setShowSandboxModal] = useState(false);
   const [outageMode, setOutageMode] = useState<boolean>(false);
+  const [connectivity, setConnectivity] = useState<AgentConnectivityResult>({
+    online: false,
+    code: 'NETWORK_ERROR',
+    message: 'ยังไม่ได้ตรวจการเชื่อมต่อ',
+  });
+  const [checkingConnectivity, setCheckingConnectivity] = useState(false);
 
   // Chat State
   const [inputText, setInputText] = useState('');
@@ -100,10 +109,9 @@ export default function AgentRunScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchUserQuota().then((q) => {
-      if (q) {
-        updateQuotaState(q.quota_remaining ?? 7, q.current_tier ?? 'free', q.max_weekly_quota ?? 7);
-      }
+    void Promise.all([fetchUserQuota(), checkAgentConnectivity()]).then(([q, connection]) => {
+      updateQuotaState(q.quota_remaining ?? 7, q.current_tier ?? 'free', q.max_weekly_quota ?? 7);
+      setConnectivity(connection);
     });
   }, [updateQuotaState]);
 
@@ -151,19 +159,33 @@ export default function AgentRunScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setErrorMsg(null);
     try {
-      const q = await fetchUserQuota();
+      const [q, connection] = await Promise.all([fetchUserQuota(), checkAgentConnectivity()]);
       const newQuota = q?.quota_remaining ?? 7;
       const newTier = q?.current_tier ?? 'free';
       const maxQuota = q?.max_weekly_quota ?? 7;
 
       updateQuotaState(newQuota, newTier, maxQuota);
+      setConnectivity(connection);
+      if (!connection.online) setErrorMsg(connection.message);
     } catch {
       setErrorMsg('ไม่สามารถตรวจสอบโควตาจากเซิร์ฟเวอร์ได้');
     } finally {
       setRefreshing(false);
     }
   }, [updateQuotaState]);
+
+  const handleConnectivityCheck = async () => {
+    if (checkingConnectivity) return;
+    setCheckingConnectivity(true);
+    try {
+      const connection = await checkAgentConnectivity();
+      setConnectivity(connection);
+    } finally {
+      setCheckingConnectivity(false);
+    }
+  };
 
   const handleSendMessage = async (textToSend?: string, displayText?: string) => {
     const text = (textToSend || inputText).trim();
@@ -212,11 +234,14 @@ export default function AgentRunScreen() {
         timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
       };
       setChatMessages((prev) => [...prev, agentMsg]);
-    } catch {
+    } catch (error) {
+      const errorMessage = getAgentErrorMessage(error);
+      const connection = await checkAgentConnectivity();
+      setConnectivity(connection);
       const agentMsg: ChatMessage = {
         id: nextChatMessageId('agent'),
         sender: 'agent',
-        text: 'ไม่สามารถเชื่อมต่อระบบคัดกรองออนไลน์ได้ในขณะนี้ ระบบจะไม่ประเมินอาการหรือแนะนำยาแบบออฟไลน์ กรุณาลองใหม่อีกครั้ง หรือติดต่อแพทย์หรือเภสัชกรหากต้องการคำแนะนำเรื่องยา',
+        text: `${errorMessage}\nระบบจะไม่ประเมินอาการหรือแนะนำยาแบบออฟไลน์ กรุณาดึงหน้าจอลงเพื่อตรวจการเชื่อมต่อแล้วลองใหม่`,
         timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
       };
       setChatMessages((prev) => [...prev, agentMsg]);
@@ -276,8 +301,13 @@ export default function AgentRunScreen() {
               {isUnlimited ? '👑 Admin (Unlimited)' : `${currentTier.toUpperCase()} (${quotaRemaining}/${maxWeeklyQuota})`}
             </Text>
           </View>
-          {__DEV__ ? (
-            <TouchableOpacity onPress={() => setShowSandboxModal(true)} style={styles.sandboxBtn}>
+          {__DEV__ || isUnlimited ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="เปิดการตั้งค่าและตรวจการเชื่อมต่อ AI Agent"
+              onPress={() => setShowSandboxModal(true)}
+              style={styles.sandboxBtn}
+            >
               <Text style={{ fontSize: 14 }}>⚙️</Text>
             </TouchableOpacity>
           ) : null}
@@ -307,6 +337,8 @@ export default function AgentRunScreen() {
       {activeTab === 'summary' ? (
         <ScrollView
           contentContainerStyle={styles.content}
+          alwaysBounceVertical
+          contentInsetAdjustmentBehavior="automatic"
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -512,6 +544,16 @@ export default function AgentRunScreen() {
           <ScrollView
             ref={scrollViewRef}
             contentContainerStyle={styles.chatContent}
+            alwaysBounceVertical
+            contentInsetAdjustmentBehavior="automatic"
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
             onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
           >
             {/* Quick Prompts */}
@@ -628,25 +670,49 @@ export default function AgentRunScreen() {
         </View>
       </Modal>
 
-      {/* Developer Sandbox & Control Panel Modal */}
-      {__DEV__ ? <Modal visible={showSandboxModal} transparent animationType="slide">
+      {/* Agent settings, connectivity diagnostics, and developer sandbox */}
+      {showSandboxModal ? <Modal visible transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.sandboxModalBox}>
             <View style={styles.sandboxHeader}>
-              <Text style={styles.sandboxTitle}>⚙️ AI Control Panel & Sandbox</Text>
-              <TouchableOpacity onPress={() => setShowSandboxModal(false)}>
+              <Text style={styles.sandboxTitle}>⚙️ การตั้งค่า AI Agent</Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="ปิดการตั้งค่า AI Agent"
+                hitSlop={8}
+                onPress={() => setShowSandboxModal(false)}
+              >
                 <Text style={{ fontSize: 18, color: colors.muted }}>✕</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.sandboxContent}>
-              <View style={styles.sandboxRow}>
+              <View style={[styles.connectivityCard, connectivity.online ? styles.connectivityCardOnline : styles.connectivityCardOffline]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sandboxLabel}>
+                    {connectivity.online ? '● Agent Server พร้อมใช้งาน' : '● Agent Server ยังไม่พร้อม'}
+                  </Text>
+                  <Text selectable style={styles.sandboxSub}>{connectivity.message}</Text>
+                </View>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={styles.connectionTestButton}
+                  disabled={checkingConnectivity}
+                  onPress={() => void handleConnectivityCheck()}
+                >
+                  {checkingConnectivity
+                    ? <ActivityIndicator size="small" color={colors.primary} />
+                    : <Text style={styles.connectionTestText}>ตรวจอีกครั้ง</Text>}
+                </TouchableOpacity>
+              </View>
+
+              {__DEV__ ? <View style={styles.sandboxRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.sandboxLabel}>จำลองระบบ AI ขัดข้อง (Outage Mode)</Text>
-                  <Text style={styles.sandboxSub}>สวิตช์บังคับความล้มเหลวเพื่อทดสอบ Offline Safety Engine</Text>
+                  <Text style={styles.sandboxSub}>สวิตช์นี้แสดงเฉพาะ Development build</Text>
                 </View>
                 <Switch value={outageMode} onValueChange={setOutageMode} trackColor={{ true: colors.warning }} />
-              </View>
+              </View> : null}
 
               <View style={styles.sandboxInfo}>
                 <Text style={styles.sandboxLabel}>Runtime configuration มาจาก Clinical Admin</Text>
@@ -1180,6 +1246,38 @@ const styles = StyleSheet.create({
   },
   sandboxContent: {
     gap: 12,
+  },
+  connectivityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  connectivityCardOnline: {
+    backgroundColor: colors.successSoft,
+    borderColor: colors.success,
+  },
+  connectivityCardOffline: {
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
+  },
+  connectionTestButton: {
+    minHeight: 44,
+    minWidth: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+  },
+  connectionTestText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
   },
   sandboxRow: {
     flexDirection: 'row',
