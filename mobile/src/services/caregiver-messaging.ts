@@ -31,6 +31,7 @@ export async function refreshCaregiverInbox() {
 
 async function registerPushToken() {
   if (Platform.OS === 'web') return false;
+  if (Constants.expoConfig?.extra?.notifications?.remotePushEnabled !== true) return false;
   const allowed = await requestNotificationPermission();
   if (!allowed) return false;
   const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;

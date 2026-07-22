@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { colors } from '@/constants/theme';
 import { refreshClinicalCatalog } from '@/services/clinical-catalog';
 import { startCaregiverMessaging, stopCaregiverMessaging } from '@/services/caregiver-messaging';
+import { rescheduleMedicationNotifications } from '@/services/notifications';
 import { supabase } from '@/services/supabase';
 import { pullYaCheckSnapshot, pushYaCheckSnapshot } from '@/services/sync';
 import { useAppStore } from '@/store/use-app-store';
@@ -41,6 +42,10 @@ export default function RootLayout() {
           archivedCabinet: remote.archivedCabinet,
           takenByDate: remote.takenByDate,
         });
+        const currentCabinet = useAppStore.getState().cabinet;
+        if (currentCabinet.some((medicine) => medicine.status === 'active')) {
+          await rescheduleMedicationNotifications(currentCabinet).catch((error) => console.warn('Medication reminders refresh deferred:', error));
+        }
         await startCaregiverMessaging();
       } catch (error) {
         console.warn('Initial sync deferred:', error);
@@ -79,6 +84,13 @@ export default function RootLayout() {
       stopCaregiverMessaging();
     };
   }, [hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || !authenticated) return;
+    const currentCabinet = useAppStore.getState().cabinet;
+    if (!currentCabinet.some((medicine) => medicine.status === 'active')) return;
+    void rescheduleMedicationNotifications(currentCabinet).catch((error) => console.warn('Medication reminders restore deferred:', error));
+  }, [authenticated, hydrated]);
 
   return (
     <>

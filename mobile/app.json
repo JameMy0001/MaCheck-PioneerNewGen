@@ -35,12 +35,6 @@
           "barcodeScannerEnabled": true
         }
       ],
-      [
-        "expo-notifications",
-        {
-          "defaultChannel": "medication-reminders"
-        }
-      ],
       "expo-secure-store",
       "expo-sqlite",
       "expo-image",
@@ -61,6 +55,9 @@
     },
     "extra": {
       "router": {},
+      "notifications": {
+        "remotePushEnabled": false
+      },
       "eas": {
         "projectId": "4f318cf7-99a1-45bd-b5de-d5f2a0158318"
       }

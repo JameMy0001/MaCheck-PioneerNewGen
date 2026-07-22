@@ -57,10 +57,12 @@ export async function rescheduleMedicationNotifications(medicines: CabinetMedici
         content: {
           title: `ถึงเวลากินยา · ช่วง${schedule.label}`,
           body: `${displayName} ${formatMedicineDose(cabinetMedicine)}`,
+          sound: 'default',
           data: { type: 'medication_reminder', medicineId: cabinetMedicine.id, slot },
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          channelId: process.env.EXPO_OS === 'android' ? 'medication-reminders' : undefined,
           hour: schedule.time.hour,
           minute: schedule.time.minute,
         },
