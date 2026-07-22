@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { ClinicalIntakeModal } from '@/components/agent/clinical-intake-modal';
 import { useFontMultiplier } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import {
@@ -23,7 +24,6 @@ import {
   fetchUserQuota,
   generateAIChatReplyLive,
   generateLocalAgentSummary,
-  generateOfflineChatResponse,
   requestAgentReview,
   runAgentAnalysis,
 } from '@/services/agent';
@@ -34,6 +34,7 @@ interface ChatMessage {
   id: string;
   sender: 'user' | 'agent';
   text: string;
+  contextText?: string;
   timestamp: string;
 }
 
@@ -84,6 +85,8 @@ export default function AgentRunScreen() {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [conversationMode, setConversationMode] = useState<AgentConversationMode>('general');
+  const [showClinicalIntakeModal, setShowClinicalIntakeModal] = useState(false);
+  const [intakeOriginalQuestion, setIntakeOriginalQuestion] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -162,14 +165,15 @@ export default function AgentRunScreen() {
     }
   }, [updateQuotaState]);
 
-  const handleSendMessage = async (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string, displayText?: string) => {
     const text = (textToSend || inputText).trim();
     if (!text) return;
 
     const userMsg: ChatMessage = {
       id: nextChatMessageId('user'),
       sender: 'user',
-      text,
+      text: displayText ?? text,
+      contextText: text,
       timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
     };
 
@@ -178,7 +182,7 @@ export default function AgentRunScreen() {
       .slice(-10)
       .map((message) => ({
         role: message.sender === 'user' ? 'user' : 'assistant',
-        content: message.text,
+        content: message.contextText ?? message.text,
       }));
 
     setChatMessages((prev) => [...prev, userMsg]);
@@ -190,24 +194,29 @@ export default function AgentRunScreen() {
     }, 100);
 
     try {
-      const response = __DEV__ && outageMode
-        ? generateOfflineChatResponse(text, conversationHistory, conversationMode)
-        : await generateAIChatReplyLive(text, conversationHistory, conversationMode);
+      if (__DEV__ && outageMode) throw new Error('AGENT_ONLINE_UNAVAILABLE');
+      const response = await generateAIChatReplyLive(text, conversationHistory, conversationMode);
       setConversationMode(response.conversationMode);
+      const shouldOpenIntake = response.responseType === 'clarifying_questions' && conversationMode === 'general';
+      if (shouldOpenIntake) {
+        setIntakeOriginalQuestion(text);
+        setShowClinicalIntakeModal(true);
+      }
       const agentMsg: ChatMessage = {
         id: nextChatMessageId('agent'),
         sender: 'agent',
-        text: response.text,
+        text: shouldOpenIntake
+          ? 'ระบบคัดกรองออนไลน์ต้องการข้อมูลอาการเพิ่มเติม กรุณากรอกแบบซักอาการที่เปิดขึ้นมา แล้วระบบจะส่งข้อมูลทั้งหมดให้ AI Agent ประเมินพร้อมกันครับ'
+          : response.text,
+        contextText: response.text,
         timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
       };
       setChatMessages((prev) => [...prev, agentMsg]);
     } catch {
-      const fallback = generateOfflineChatResponse(text, conversationHistory, conversationMode);
-      setConversationMode(fallback.conversationMode);
       const agentMsg: ChatMessage = {
         id: nextChatMessageId('agent'),
         sender: 'agent',
-        text: fallback.text,
+        text: 'ไม่สามารถเชื่อมต่อระบบคัดกรองออนไลน์ได้ในขณะนี้ ระบบจะไม่ประเมินอาการหรือแนะนำยาแบบออฟไลน์ กรุณาลองใหม่อีกครั้ง หรือติดต่อแพทย์หรือเภสัชกรหากต้องการคำแนะนำเรื่องยา',
         timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
       };
       setChatMessages((prev) => [...prev, agentMsg]);
@@ -585,6 +594,19 @@ export default function AgentRunScreen() {
       )}
 
       {/* Confirmation Modal for Review Request */}
+      {showClinicalIntakeModal ? <ClinicalIntakeModal
+          visible
+          originalQuestion={intakeOriginalQuestion}
+          onCancel={() => {
+            setShowClinicalIntakeModal(false);
+            setConversationMode('general');
+          }}
+          onSubmit={(structuredAnswer) => {
+            setShowClinicalIntakeModal(false);
+            void handleSendMessage(structuredAnswer, '✓ ส่งแบบซักอาการให้ AI Agent แล้ว');
+          }}
+        /> : null}
+
       <Modal visible={showConfirmModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>

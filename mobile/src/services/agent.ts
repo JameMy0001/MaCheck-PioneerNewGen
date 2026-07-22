@@ -1,7 +1,7 @@
 import { getMedicine } from '@/data/medicine-db';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import { getAdherence, useAppStore } from '@/store/use-app-store';
-import { checkDrugInteractions, checkFoodQuery, getTodayKey } from '@/utils/safety';
+import { checkDrugInteractions, getTodayKey } from '@/utils/safety';
 
 export interface AgentEvidenceRef {
   type: string;
@@ -94,100 +94,6 @@ function allergyMatchesMedicine(allergy: string, medicineId: string) {
     });
 }
 
-const symptomMedicineRequest = (text: string) => {
-  const query = normalize(text);
-  const hasSymptom = ['ปวด', 'เจ็บ', 'บวม', 'ไข้', 'ไอ', 'เวียนหัว', 'คลื่นไส้', 'อาเจียน', 'ผื่น', 'ชา', 'อ่อนแรง', 'หายใจ']
-    .some((term) => query.includes(term));
-  return hasSymptom && [/(?:กิน|ทาน|ใช้)ยาอะไร/, /ควร(?:กิน|ทาน|ใช้)ยา/, /ยา(?:ตัว)?ไหนดี/, /แนะนำยา/]
-    .some((pattern) => pattern.test(query));
-};
-
-const hasAffirmedEmergencySymptom = (text: string) => {
-  const query = normalize(text);
-  const patterns = [/หายใจ(?:ไม่ออก|ลำบาก|ติดขัด)/, /เจ็บ(?:แน่น|จุก)?หน้าอก/, /หมดสติ|ไม่รู้สึกตัว/, /ชัก(?:เกร็ง)?/, /ปากบวม|ลิ้นบวม|คอบวม/];
-  return patterns.some((pattern) => {
-    const matcher = new RegExp(pattern.source, 'gu');
-    for (const match of query.matchAll(matcher)) {
-      if (match.index === undefined) continue;
-      const prefix = query.slice(Math.max(0, match.index - 24), match.index);
-      if (!/(?:ไม่มี|ไม่ได้มี|ไม่ได้|ไม่พบ|ไม่รู้สึก)(?:อาการ)?\s*$/.test(prefix)) return true;
-    }
-    return false;
-  });
-};
-
-const offlineIntakeQuestions = [
-  'ก่อนประเมินเรื่องยา ขอถามอาการเพิ่มเติมเพื่อคัดกรองความเร่งด่วนก่อนครับ',
-  '1. ปวดตรงไหน ข้างเดียวหรือสองข้าง และปวดระดับ 0–10 เท่าไร?',
-  '2. เริ่มปวดเมื่อไร เป็นตลอดหรือเป็น ๆ หาย ๆ และปวดแบบตื้อ แปลบ แสบ หรือเกร็ง?',
-  '3. ก่อนเริ่มอาการมีหกล้ม กระแทก ออกกำลังหนัก เดินทางนาน ผ่าตัด หรือนอนนิ่งนานไหม?',
-  '4. มีบวม แดง ร้อน ชา อ่อนแรง ไข้ หรือเดินลงน้ำหนักไม่ได้ไหม?',
-  '5. ตอนนี้มีหายใจลำบาก เจ็บหน้าอก หน้ามืด หรือหมดสติไหม?',
-  'ตอบเป็นข้อ ๆ เท่าที่ทราบได้เลย หากมีอาการในข้อ 5 ให้โทร 1669 ทันที ไม่ต้องรอคำตอบจาก AI',
-].join('\n');
-
-function safeOfflineChatReply(
-  userText: string,
-  _history: AgentChatTurn[] = [],
-  conversationMode: AgentConversationMode = 'general',
-) {
-  const store = useAppStore.getState();
-  const activeCabinet = store.cabinet.filter((item) => item.status === 'active');
-  const query = normalize(userText);
-
-  if (hasAffirmedEmergencySymptom(userText)) {
-    return 'อาการที่แจ้งอาจเป็นภาวะฉุกเฉิน ระบบจะไม่ประเมินยาในแชตนี้ กรุณาโทร 1669 หรือไปห้องฉุกเฉินทันที และอย่าขับรถเอง หากทำได้ให้นำรายการยาที่ใช้อยู่ไปด้วย';
-  }
-
-  if (conversationMode !== 'symptom_intake' && symptomMedicineRequest(userText)) {
-    return offlineIntakeQuestions;
-  }
-
-  if (conversationMode === 'symptom_intake') {
-    return 'ขอบคุณสำหรับข้อมูลเพิ่มเติม ขณะนี้ระบบอยู่ในโหมดกฎออฟไลน์และยังไม่สามารถประเมินอาการหรือเลือกยาให้ได้อย่างน่าเชื่อถือ กรุณานำข้อมูลอาการนี้พร้อมรายการยา โรคประจำตัว และประวัติแพ้ยาไปสอบถามแพทย์หรือเภสัชกร โดยอย่าเริ่มหรือปรับยาเอง';
-  }
-
-  if (query.includes('ยาตีกัน') || query.includes('ตีกัน')) {
-    const findings = checkDrugInteractions(activeCabinet.map((item) => item.medicineId));
-    if (findings.length) {
-      return `⚠️ [โหมดกฎออฟไลน์] พบคู่ยาที่ต้องตรวจสอบ ${findings.length} คู่:\n• ${findings
-        .map((finding) => finding.title)
-        .join('\n• ')}\n\nอย่าปรับหรือหยุดยาเอง โปรดติดต่อแพทย์หรือเภสัชกรเพื่อยืนยันแนวทางที่เหมาะสม`;
-    }
-    return '[โหมดกฎออฟไลน์] ไม่พบคู่ยาที่ตรงกับฐานข้อมูลในเครื่องที่ตรวจครั้งนี้ ผลนี้ไม่ใช่การรับรองว่ายาทุกชนิดใช้ร่วมกันได้ โปรดตรวจสอบกับแพทย์หรือเภสัชกรเมื่อมีการเปลี่ยนยา';
-  }
-
-  if (query.includes('ส้มโอ') || query.includes('นม') || query.includes('ของแสลง') || query.includes('กาแฟ')) {
-    const findings = checkFoodQuery(userText, activeCabinet, store.profile.diseases ?? []);
-    if (findings.length) {
-      return `⚠️ [โหมดกฎออฟไลน์] ${findings
-        .map((finding) => `${finding.title}: ${finding.description}\n${finding.advice ?? ''}`)
-        .join('\n\n')}`;
-    }
-    return '[โหมดกฎออฟไลน์] ไม่พบข้อมูลที่ตรงกับคำถามในฐานข้อมูลอาหารและยาที่มีอยู่ ระบบไม่สามารถกำหนดช่วงห่างที่เหมาะสมให้ยาทุกชนิดได้ โปรดดูฉลากยาหรือสอบถามเภสัชกร';
-  }
-
-  return '[โหมดกฎออฟไลน์] ระบบยังไม่มีข้อมูลที่เพียงพอสำหรับตอบคำถามนี้อย่างปลอดภัย กรุณาตรวจฉลากยาและสอบถามแพทย์หรือเภสัชกร โดยอย่าปรับ เพิ่ม ลด หรือหยุดยาเอง';
-}
-
-export const generateOfflineChatReply = safeOfflineChatReply;
-
-export function generateOfflineChatResponse(
-  userText: string,
-  history: AgentChatTurn[] = [],
-  conversationMode: AgentConversationMode = 'general',
-): AgentChatReply {
-  const text = safeOfflineChatReply(userText, history, conversationMode);
-  const emergency = hasAffirmedEmergencySymptom(userText);
-  const clarifying = conversationMode !== 'symptom_intake' && symptomMedicineRequest(userText);
-  return {
-    text: `[โหมดกฎออฟไลน์]\n${text}`,
-    responseType: emergency ? 'emergency_escalation' : clarifying ? 'clarifying_questions' : 'information',
-    conversationMode: clarifying || conversationMode === 'symptom_intake' ? 'symptom_intake' : 'general',
-    requiresFollowUp: clarifying,
-  };
-}
-
 async function invokeAgentFunction(body: Record<string, unknown>) {
   if (!isSupabaseConfigured) throw new Error('AGENT_BACKEND_NOT_CONFIGURED');
   const { data: sessionData } = await supabase.auth.getSession();
@@ -203,27 +109,23 @@ export async function generateAIChatReplyLive(
   history: AgentChatTurn[] = [],
   conversationMode: AgentConversationMode = 'general',
 ): Promise<AgentChatReply> {
-  try {
-    const data = await invokeAgentFunction({
-      intent: 'chat',
-      message: userText.slice(0, 1000),
-      history: history.slice(-10),
-      conversation_mode: conversationMode,
-    });
-    if (!data.success || typeof data.reply !== 'string') {
-      throw new Error(data.message || 'AGENT_CHAT_FAILED');
-    }
-    return {
-      text: data.execution_mode === 'live'
-        ? `[AI Live]\n${data.reply}`
-        : `[กฎความปลอดภัยจากเซิร์ฟเวอร์]\n${data.reply}`,
-      responseType: data.response_type ?? 'information',
-      conversationMode: data.conversation_mode === 'symptom_intake' ? 'symptom_intake' : 'general',
-      requiresFollowUp: Boolean(data.requires_follow_up),
-    };
-  } catch {
-    return generateOfflineChatResponse(userText, history, conversationMode);
+  const data = await invokeAgentFunction({
+    intent: 'chat',
+    message: userText.slice(0, 3000),
+    history: history.slice(-10),
+    conversation_mode: conversationMode,
+  });
+  if (!data.success || typeof data.reply !== 'string') {
+    throw new Error(data.message || 'AGENT_CHAT_FAILED');
   }
+  return {
+    text: data.execution_mode === 'live'
+      ? `[AI Live]\n${data.reply}`
+      : `[กฎความปลอดภัยจากเซิร์ฟเวอร์]\n${data.reply}`,
+    responseType: data.response_type ?? 'information',
+    conversationMode: data.conversation_mode === 'symptom_intake' ? 'symptom_intake' : 'general',
+    requiresFollowUp: Boolean(data.requires_follow_up),
+  };
 }
 
 export function generateLocalAgentSummary(): UnifiedAgentSummary {

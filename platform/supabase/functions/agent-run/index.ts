@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
       return json({ error: "Unsupported intent" }, 400);
     }
     const chatMessage = intent === "chat"
-      ? String(body.message ?? "").trim().slice(0, 1000)
+      ? String(body.message ?? "").trim().slice(0, 3000)
       : "";
     const chatHistory = intent === "chat"
       ? sanitizeClinicalHistory(body.history)

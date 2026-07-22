@@ -88,7 +88,7 @@ export function sanitizeClinicalHistory(value: unknown): ClinicalChatTurn[] {
     )
       .replace(/^\[(?:AI Live|กฎความปลอดภัยจากเซิร์ฟเวอร์|โหมดกฎออฟไลน์)\]\s*/u, "")
       .trim()
-      .slice(0, 1000);
+      .slice(0, 2000);
     return content ? [{ role, content }] : [];
   });
 }
