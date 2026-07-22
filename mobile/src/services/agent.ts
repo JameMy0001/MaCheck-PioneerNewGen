@@ -124,11 +124,18 @@ async function invokeAgentFunction(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('agent-run', { body });
   if (error) {
     const context = (error as { context?: unknown }).context;
-    const status = context instanceof Response ? context.status : undefined;
+    const responseContext = context && typeof context === 'object'
+      && typeof (context as { clone?: unknown }).clone === 'function'
+      && typeof (context as { json?: unknown }).json === 'function'
+      ? context as Response
+      : null;
+    const status = typeof (context as { status?: unknown } | null)?.status === 'number'
+      ? (context as { status: number }).status
+      : undefined;
     let serverMessage = '';
-    if (context instanceof Response) {
+    if (responseContext) {
       try {
-        const payload = await context.clone().json() as { message?: string; error?: string };
+        const payload = await responseContext.clone().json() as { message?: string; error?: string };
         serverMessage = payload?.message || payload?.error || '';
       } catch {
         serverMessage = '';
