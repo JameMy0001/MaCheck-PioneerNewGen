@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,9 +20,10 @@ import { colors } from '@/constants/theme';
 import {
   fetchUserQuota,
   generateAIChatReplyLive,
-  NVIDIA_MODEL,
+  generateLocalAgentSummary,
+  generateOfflineChatReply,
+  requestAgentReview,
   runAgentAnalysis,
-  type UnifiedAgentSummary,
 } from '@/services/agent';
 import { useAgentStore } from '@/store/use-agent-store';
 import { useAppStore } from '@/store/use-app-store';
@@ -41,11 +42,8 @@ const quickPrompts = [
   '⏰ ควรปฏิบัติตามตารางยาอย่างไร?',
 ];
 
-const modelOptions = [
-  { id: 'meta/llama-3.1-70b-instruct', label: 'Llama 3.1 70B (Smart - แนะนำ)' },
-  { id: 'meta/llama-3.1-8b-instruct', label: 'Llama 3.1 8B (Fast - รวดเร็ว)' },
-  { id: 'nvidia/llama-3.1-nemotron-70b-instruct', label: 'Nemotron 70B (Pro - ละเอียด)' },
-];
+let chatMessageSequence = 0;
+const nextChatMessageId = (sender: ChatMessage['sender']) => `${sender}-${++chatMessageSequence}`;
 
 export default function AgentRunScreen() {
   const router = useRouter();
@@ -64,9 +62,7 @@ export default function AgentRunScreen() {
     setAnalyzing,
   } = useAgentStore();
 
-  const cabinet = useAppStore((state) => state.cabinet);
   const profile = useAppStore((state) => state.profile);
-  const takenByDate = useAppStore((state) => state.takenByDate);
 
   const [activeTab, setActiveTab] = useState<'summary' | 'chat'>('summary');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -76,11 +72,10 @@ export default function AgentRunScreen() {
 
   // Review Request Modal State
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   // Sandbox & Control Panel Modal State
   const [showSandboxModal, setShowSandboxModal] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string>(NVIDIA_MODEL);
-  const [temperature, setTemperature] = useState<number>(0.2);
   const [outageMode, setOutageMode] = useState<boolean>(false);
 
   // Chat State
@@ -90,7 +85,7 @@ export default function AgentRunScreen() {
     {
       id: 'welcome',
       sender: 'agent',
-      text: `สวัสดีครับคุณ ${profile.displayName || profile.username || 'ผู้ใช้งาน'} 🤖 ระบบ AI Care Agent พร้อมช่วยตอบคำถามและวิเคราะห์ข้อมูลเรื่องการใช้ยา อาการแพ้ยา และของแสลงด้วยโมเดล AI ภาษาธรรมชาติครับ สามารถพิมพ์สอบถามได้เลยครับ`,
+      text: `สวัสดีครับคุณ ${profile.displayName || profile.username || 'ผู้ใช้งาน'} 🤖 ระบบจะแจ้งให้เห็นชัดว่าคำตอบใดมาจาก AI Live กฎความปลอดภัยบนเซิร์ฟเวอร์ หรือโหมดออฟไลน์ และจะไม่ปรับยาให้เอง สามารถพิมพ์สอบถามข้อมูลเรื่องยา อาการแพ้ยา และตารางยาได้ครับ`,
       timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -104,7 +99,7 @@ export default function AgentRunScreen() {
         updateQuotaState(q.quota_remaining ?? 7, q.current_tier ?? 'free', q.max_weekly_quota ?? 7);
       }
     });
-  }, []);
+  }, [updateQuotaState]);
 
   const [analysisStep, setAnalysisStep] = useState<number>(0);
 
@@ -113,35 +108,35 @@ export default function AgentRunScreen() {
     setAnalyzing(true);
     setAnalysisStep(1);
 
-    // Step 1 -> 2
-    await new Promise((r) => setTimeout(r, 400));
-    setAnalysisStep(2);
-
-    // Step 2 -> 3
-    await new Promise((r) => setTimeout(r, 500));
-    setAnalysisStep(3);
-
     try {
-      if (outageMode) {
-        throw new Error('Forced Outage Mode Enabled (จำลองเซิร์ฟเวอร์ AI ขัดข้อง)');
+      setAnalysisStep(2);
+      if (__DEV__ && outageMode) {
+        const localSummary = generateLocalAgentSummary();
+        setAnalysisResult(localSummary, quotaRemaining, currentTier, maxWeeklyQuota);
+        setReviewRequested(false);
+        return;
       }
+      setAnalysisStep(3);
       const res = await runAgentAnalysis();
-
-      // Step 3 -> 4
       setAnalysisStep(4);
-      await new Promise((r) => setTimeout(r, 300));
 
       if (!res.success && res.error_code === 'QUOTA_EXCEEDED') {
         setErrorMsg(res.message || 'คุณใช้โควตาฟรีครบ 7 ครั้งในสัปดาห์นี้แล้ว');
-        setAnalysisResult(latestSummary, 0, res.current_tier || 'free');
+        updateQuotaState(0, res.current_tier || 'free', res.max_weekly_quota ?? maxWeeklyQuota);
         return;
       }
 
       if (res.summary) {
-        setAnalysisResult(res.summary, res.quota_remaining ?? 7, res.current_tier ?? 'free');
+        setAnalysisResult(
+          res.summary,
+          res.quota_remaining ?? quotaRemaining,
+          res.current_tier ?? currentTier,
+          res.max_weekly_quota ?? maxWeeklyQuota,
+        );
+        setReviewRequested(false);
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'เกิดข้อผิดพลาดในการวิเคราะห์ข้อมูล');
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการวิเคราะห์ข้อมูล');
     } finally {
       setAnalyzing(false);
       setAnalysisStep(0);
@@ -156,20 +151,20 @@ export default function AgentRunScreen() {
       const newTier = q?.current_tier ?? 'free';
       const maxQuota = q?.max_weekly_quota ?? 7;
 
-      // Reset analysis summary back to clean slate and update live quota
-      setAnalysisResult(null, newQuota, newTier, maxQuota);
-    } catch (_) {
+      updateQuotaState(newQuota, newTier, maxQuota);
+    } catch {
+      setErrorMsg('ไม่สามารถตรวจสอบโควตาจากเซิร์ฟเวอร์ได้');
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [updateQuotaState]);
 
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
     if (!text) return;
 
     const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: nextChatMessageId('user'),
       sender: 'user',
       text,
       timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
@@ -184,21 +179,20 @@ export default function AgentRunScreen() {
     }, 100);
 
     try {
-      if (outageMode) {
-        throw new Error('Simulated Outage');
-      }
-      const replyText = await generateAIChatReplyLive(text, cabinet, profile, takenByDate, selectedModel, temperature);
+      const replyText = __DEV__ && outageMode
+        ? generateOfflineChatReply(text)
+        : await generateAIChatReplyLive(text);
       const agentMsg: ChatMessage = {
-        id: `agent-${Date.now()}`,
+        id: nextChatMessageId('agent'),
         sender: 'agent',
         text: replyText,
         timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
       };
       setChatMessages((prev) => [...prev, agentMsg]);
-    } catch (e) {
-      const fallbackText = `⚠️ [โหมดออฟไลน์สำรอง] ตรวจสอบคำถามเกี่ยวกับ "${text}": ไม่พบความเสี่ยงรุนแรงในตู้ยาปัจจุบันของคุณ แนะนำให้ปฏิบัติตามตารางและฉากยาตามแพทย์สั่งครับ`;
+    } catch {
+      const fallbackText = generateOfflineChatReply(text);
       const agentMsg: ChatMessage = {
-        id: `agent-${Date.now()}`,
+        id: nextChatMessageId('agent'),
         sender: 'agent',
         text: fallbackText,
         timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
@@ -212,10 +206,19 @@ export default function AgentRunScreen() {
     }
   };
 
-  const handleConfirmReview = () => {
-    setReviewRequested(true);
-    setShowConfirmModal(false);
-    Alert.alert('ส่งคำขอสำเร็จ! 📩', 'ระบบได้บันทึกคำขอตรวจทานประวัติทานยาเรียบร้อยแล้ว');
+  const handleConfirmReview = async () => {
+    if (!latestSummary || !latestSummary.allowedActions.includes('request_professional_review') || reviewSubmitting) return;
+    setReviewSubmitting(true);
+    try {
+      await requestAgentReview(latestSummary.summaryId);
+      setReviewRequested(true);
+      setShowConfirmModal(false);
+      Alert.alert('บันทึกคำขอสำเร็จ 📩', 'คำขอถูกบันทึกเป็นสถานะรอตรวจทาน คุณสามารถติดตามสถานะได้เมื่อระบบผู้เชี่ยวชาญพร้อมใช้งาน');
+    } catch (error) {
+      Alert.alert('ส่งคำขอไม่สำเร็จ', error instanceof Error ? error.message : 'กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   const toggleEvidence = (category: string) => {
@@ -223,6 +226,19 @@ export default function AgentRunScreen() {
   };
 
   const isUnlimited = currentTier === 'admin' || quotaRemaining >= 999;
+  const canRequestReview = Boolean(latestSummary?.allowedActions.includes('request_professional_review'));
+  const summaryChanges = useMemo(() => {
+    if (!previousSummary || !latestSummary) return [];
+    const previousRows = new Map(previousSummary.rows.map((row) => [row.category, row]));
+    return latestSummary.rows.flatMap((row) => {
+      const previous = previousRows.get(row.category);
+      if (!previous) return [`เพิ่มข้อมูลหมวด ${getCategoryLabel(row.category)}`];
+      if (previous.status !== row.status || previous.latestData !== row.latestData || previous.finding !== row.finding) {
+        return [`${getCategoryLabel(row.category)}: ${previous.latestData ?? '-'} → ${row.latestData ?? '-'}`];
+      }
+      return [];
+    });
+  }, [latestSummary, previousSummary]);
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -238,9 +254,11 @@ export default function AgentRunScreen() {
               {isUnlimited ? '👑 Admin (Unlimited)' : `${currentTier.toUpperCase()} (${quotaRemaining}/${maxWeeklyQuota})`}
             </Text>
           </View>
-          <TouchableOpacity onPress={() => setShowSandboxModal(true)} style={styles.sandboxBtn}>
-            <Text style={{ fontSize: 14 }}>⚙️</Text>
-          </TouchableOpacity>
+          {__DEV__ ? (
+            <TouchableOpacity onPress={() => setShowSandboxModal(true)} style={styles.sandboxBtn}>
+              <Text style={{ fontSize: 14 }}>⚙️</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
 
@@ -309,10 +327,10 @@ export default function AgentRunScreen() {
                 ⏳ กำลังวิเคราะห์ประวัติสุขภาพตามแผนความปลอดภัย...
               </Text>
               {[
-                { title: '1. รวบรวมประวัติสุขภาพ & ยาในระบบ', desc: 'ดึงข้อมูล Snapshot ล่าสุดของผู้ป่วย' },
-                { title: '2. รันตรวจสอบความปลอดภัยทางคลินิก', desc: 'เช็คคู่ยาตีกันและแพ้ยาผ่าน Rule Engine' },
-                { title: '3. ประมวลผลสรุปโดย AI Agent', desc: 'เรียก NVIDIA NIM LLM สรุปความปลอดภัย' },
-                { title: '4. ตรวจสอบข้ออ้างอิงเชิงคลินิก', desc: 'จับคู่ข้อสรุปเข้ากับหลักฐานอ้างอิง (Evidence)' },
+                { title: '1. เตรียมคำขอที่ยืนยันตัวตน', desc: 'ส่งเฉพาะข้อมูลที่จำเป็นไปยัง Agent Server' },
+                { title: '2. สร้าง Snapshot และตรวจ Clinical Rules', desc: 'ประมวลผลใน Edge Function และฐานข้อมูลที่เผยแพร่แล้ว' },
+                { title: '3. เรียบเรียงผลแบบมีข้อจำกัด', desc: 'ใช้ AI เฉพาะการเรียบเรียงเมื่อบริการพร้อม' },
+                { title: '4. บันทึก Run และ Evidence', desc: 'เก็บผลสรุปและเส้นทางตรวจสอบย้อนหลัง' },
               ].map((step, idx) => {
                 const stepNum = idx + 1;
                 const isDone = analysisStep > stepNum;
@@ -356,12 +374,12 @@ export default function AgentRunScreen() {
           ) : null}
 
           {/* Diff & Delta Banner if previous summary exists */}
-          {previousSummary && latestSummary && (
+          {summaryChanges.length > 0 && (
             <View style={styles.diffCard}>
               <Text style={[styles.diffTitle, { fontSize: 14 * multiplier }]}>⚠️ ความเปลี่ยนแปลงจากผลสรุปครั้งก่อน</Text>
-              <Text style={[styles.diffDesc, { fontSize: 12 * multiplier }]}>
-                พบการอัปเดตข้อมูลตู้ยาหรือค่าน้ำหนักร่างกายใหม่ในระบบ AI Agent จึงประเมินชุดหลักฐานแวดล้อมใหม่ให้อัตโนมัติ
-              </Text>
+              {summaryChanges.slice(0, 4).map((change) => (
+                <Text key={change} style={[styles.diffDesc, { fontSize: 12 * multiplier }]}>• {change}</Text>
+              ))}
             </View>
           )}
 
@@ -370,7 +388,11 @@ export default function AgentRunScreen() {
             <View style={styles.llmAdviceCard}>
               <View style={styles.llmHeader}>
                 <Text style={{ fontSize: 18 }}>✨</Text>
-                <Text style={[styles.llmTitle, { fontSize: 15 * multiplier }]}>บทวิเคราะห์สุขภาพโดยผู้ช่วย AI (NVIDIA NIM Live)</Text>
+                <Text style={[styles.llmTitle, { fontSize: 15 * multiplier }]}>
+                  {latestSummary.executionMode === 'live'
+                    ? 'บทวิเคราะห์ที่เรียบเรียงโดย AI (Live)'
+                    : 'ผลคัดกรองจากกฎความปลอดภัย (ไม่ใช้ AI)'}
+                </Text>
               </View>
               <Text style={[styles.llmAdviceText, { fontSize: 14 * multiplier }]}>{latestSummary.llmPersonalizedAdvice}</Text>
             </View>
@@ -379,17 +401,19 @@ export default function AgentRunScreen() {
           {/* Review Request Card */}
           <View style={styles.reviewCard}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.reviewTitle, { fontSize: 15 * multiplier }]}>📩 ขอคำแนะนำจากแพทย์/ผู้ดูแล</Text>
+              <Text style={[styles.reviewTitle, { fontSize: 15 * multiplier }]}>📩 ส่งคำขอเพื่อตรวจทาน</Text>
               <Text style={[styles.reviewSub, { fontSize: 12 * multiplier }]}>
-                ส่งรายงานผลสรุปประวัติยานี้ไปยังบุคลากรทางการแพทย์เครือข่ายเพื่อตรวจทานความปลอดภัย
+                บันทึกผลสรุปล่าสุดเข้าสู่คิวรอตรวจทาน ระบบจะไม่เปลี่ยนแผนการรักษาอัตโนมัติ
               </Text>
             </View>
             <TouchableOpacity
-              style={[styles.reviewBtn, reviewRequested && styles.reviewBtnDone]}
-              onPress={() => !reviewRequested && setShowConfirmModal(true)}
-              disabled={reviewRequested}
+              style={[styles.reviewBtn, (reviewRequested || !canRequestReview) && styles.reviewBtnDone]}
+              onPress={() => !reviewRequested && canRequestReview && setShowConfirmModal(true)}
+              disabled={reviewRequested || !canRequestReview}
             >
-              <Text style={styles.reviewBtnText}>{reviewRequested ? 'ส่งคำขอแล้ว ✓' : 'ขอคำแนะนำ'}</Text>
+              <Text style={styles.reviewBtnText}>
+                {reviewRequested ? 'ส่งคำขอแล้ว ✓' : canRequestReview ? 'ขอคำแนะนำ' : 'ต้องใช้ผลจากเซิร์ฟเวอร์'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -419,9 +443,17 @@ export default function AgentRunScreen() {
                     )}
 
                     {/* Accordion Evidence Toggle Button */}
-                    <TouchableOpacity style={styles.evidenceToggleBtn} onPress={() => toggleEvidence(row.category)}>
+                    <TouchableOpacity
+                      style={styles.evidenceToggleBtn}
+                      onPress={() => toggleEvidence(row.category)}
+                      disabled={!row.evidenceRefs.length}
+                    >
                       <Text style={styles.evidenceToggleText}>
-                        {isExpanded ? '🔼 ปิดหลักฐานอ้างอิงเชิงคลินิก' : '🔎 ดูหลักฐานอ้างอิงเชิงคลินิก'}
+                        {!row.evidenceRefs.length
+                          ? 'ไม่มีหลักฐานอ้างอิงสำหรับรายการนี้'
+                          : isExpanded
+                            ? '🔼 ปิดหลักฐานอ้างอิงเชิงคลินิก'
+                            : '🔎 ดูหลักฐานอ้างอิงเชิงคลินิก'}
                       </Text>
                     </TouchableOpacity>
 
@@ -528,15 +560,15 @@ export default function AgentRunScreen() {
             <Text style={{ fontSize: 36, textAlign: 'center', marginBottom: 8 }}>🏥</Text>
             <Text style={styles.modalTitle}>ยืนยันคำขอรีวิวประวัติการทานยา</Text>
             <Text style={styles.modalSub}>
-              คุณต้องการส่งชุดสรุปข้อมูลและประวัติการทานยานี้ไปยังแพทย์/เภสัชกรเครือข่ายเพื่อตรวจทานความปลอดภัยใช่หรือไม่?
+              ระบบจะบันทึกผลสรุปล่าสุดเป็นคำขอสถานะ “รอตรวจทาน” โดยยังไม่ถือว่าแพทย์หรือเภสัชกรได้รับหรือรับรองผลนี้
             </Text>
 
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setShowConfirmModal(false)}>
                 <Text style={styles.modalCancelText}>ยกเลิก</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalConfirmBtn} onPress={handleConfirmReview}>
-                <Text style={styles.modalConfirmText}>ยืนยันส่งข้อมูล</Text>
+              <TouchableOpacity style={styles.modalConfirmBtn} onPress={handleConfirmReview} disabled={reviewSubmitting}>
+                <Text style={styles.modalConfirmText}>{reviewSubmitting ? 'กำลังบันทึก...' : 'ยืนยันบันทึกคำขอ'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -544,7 +576,7 @@ export default function AgentRunScreen() {
       </Modal>
 
       {/* Developer Sandbox & Control Panel Modal */}
-      <Modal visible={showSandboxModal} transparent animationType="slide">
+      {__DEV__ ? <Modal visible={showSandboxModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.sandboxModalBox}>
             <View style={styles.sandboxHeader}>
@@ -563,39 +595,18 @@ export default function AgentRunScreen() {
                 <Switch value={outageMode} onValueChange={setOutageMode} trackColor={{ true: colors.warning }} />
               </View>
 
-              <Text style={styles.sandboxLabel}>เลือกโมเดล NVIDIA NIM LLM</Text>
-              {modelOptions.map((m) => (
-                <TouchableOpacity
-                  key={m.id}
-                  style={[styles.modelChip, selectedModel === m.id && styles.modelChipActive]}
-                  onPress={() => setSelectedModel(m.id)}
-                >
-                  <Text style={[styles.modelChipText, selectedModel === m.id && styles.modelChipTextActive]}>
-                    {m.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-
-              <Text style={styles.sandboxLabel}>Temperature: {temperature}</Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {[0.0, 0.2, 0.5, 0.8].map((t) => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[styles.tempChip, temperature === t && styles.tempChipActive]}
-                    onPress={() => setTemperature(t)}
-                  >
-                    <Text style={[styles.tempChipText, temperature === t && styles.tempChipTextActive]}>{t}</Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.sandboxInfo}>
+                <Text style={styles.sandboxLabel}>Runtime configuration มาจาก Clinical Admin</Text>
+                <Text style={styles.sandboxSub}>Model, fallback, temperature และ token limit ถูกควบคุมจากเซิร์ฟเวอร์ ผู้ใช้มือถือเปลี่ยนค่าเหล่านี้ไม่ได้</Text>
               </View>
             </View>
 
             <TouchableOpacity style={styles.sandboxCloseBtn} onPress={() => setShowSandboxModal(false)}>
-              <Text style={styles.sandboxCloseText}>บันทึกการตั้งค่า</Text>
+              <Text style={styles.sandboxCloseText}>ปิด</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </Modal> : null}
     </KeyboardAvoidingView>
   );
 }
@@ -619,6 +630,7 @@ function getStatusLabel(status: string) {
     info: 'ข้อมูลทั่วไป',
     needs_data: 'ยังขาดข้อมูลสำคัญ',
     needs_attention: 'ควรระมัดระวัง',
+    review_required: 'ต้องให้ผู้เชี่ยวชาญตรวจ',
     critical: 'เสี่ยงอันตรายรุนแรง',
   };
   return map[status] || status;
@@ -631,6 +643,7 @@ function getStatusBadgeStyle(status: string) {
     case 'needs_data':
       return { bg: colors.warningSoft, fg: colors.warning };
     case 'needs_attention':
+    case 'review_required':
     case 'critical':
       return { bg: colors.dangerSoft, fg: colors.danger };
     default:
@@ -1106,46 +1119,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
-  modelChip: {
-    backgroundColor: colors.background,
+  sandboxInfo: {
+    padding: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 10,
     borderRadius: 12,
-  },
-  modelChipActive: {
     backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
-  },
-  modelChipText: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  modelChipTextActive: {
-    color: colors.primaryDark,
-    fontWeight: '900',
-  },
-  tempChip: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 8,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  tempChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  tempChipText: {
-    color: colors.text,
-    fontWeight: '700',
-  },
-  tempChipTextActive: {
-    color: '#ffffff',
-    fontWeight: '800',
+    gap: 4,
   },
   sandboxCloseBtn: {
     backgroundColor: colors.primaryDark,

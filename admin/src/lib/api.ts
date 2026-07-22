@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import type {
   AccountSummary,
+  AgentRuntimeConfig,
   AdminMember,
   AdminRole,
   AuditEntry,
@@ -210,4 +211,43 @@ export async function updateUserSubscription(targetUserIdOrHandle: string, newTi
   }
 
   throw new Error(`ไม่สามารถอัปเดตสิทธิ์ของ @${cleanHandle}: ${rpcErr.message}`);
+}
+
+async function invokeAgentAdmin<T>(body: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke('agent-admin', { body });
+  if (error) throw new Error((data as { error?: string } | null)?.error || error.message);
+  if (!(data as { success?: boolean } | null)?.success) {
+    throw new Error((data as { error?: string } | null)?.error || 'คำสั่ง AI Agent ไม่สำเร็จ');
+  }
+  return data as T;
+}
+
+export async function getAgentRuntimeConfig() {
+  const data = await invokeAgentAdmin<{ success: true; role: AdminRole; config: AgentRuntimeConfig }>({ intent: 'get_config' });
+  return data.config;
+}
+
+export async function updateAgentRuntimeConfig(config: AgentRuntimeConfig) {
+  const data = await invokeAgentAdmin<{ success: true; config: AgentRuntimeConfig }>({
+    intent: 'update_config',
+    primaryModel: config.primaryModel,
+    fallbackModel: config.fallbackModel,
+    temperature: config.temperature,
+    maxTokens: config.maxTokens,
+    requestTimeoutMs: config.requestTimeoutMs,
+    aiEnabled: config.aiEnabled,
+    promptVersion: config.promptVersion,
+  });
+  return data.config;
+}
+
+export async function rotateAgentApiKey(apiKey: string) {
+  return await invokeAgentAdmin<{ success: true; fingerprint: string; message: string }>({
+    intent: 'rotate_api_key',
+    apiKey,
+  });
+}
+
+export async function testAgentConnection() {
+  return await invokeAgentAdmin<{ success: true; code: string; latencyMs: number }>({ intent: 'test_connection' });
 }

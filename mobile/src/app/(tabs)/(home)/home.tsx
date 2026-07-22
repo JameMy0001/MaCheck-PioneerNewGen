@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FeatureIcon } from '@/components/feature-icon';
@@ -34,7 +34,6 @@ function mealTimingLabel(value: 'before' | 'after' | 'any') {
 }
 
 export default function HomeScreen() {
-  const router = useRouter();
   const { addedMedicineId } = useLocalSearchParams<{ addedMedicineId?: string }>();
   const profile = useAppStore((state) => state.profile);
   const cabinet = useAppStore((state) => state.cabinet);

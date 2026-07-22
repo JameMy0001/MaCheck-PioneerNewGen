@@ -160,6 +160,7 @@ CREATE TABLE agent_tool_calls (
 
 CREATE TABLE agent_summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     run_id UUID NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
     schema_version INT NOT NULL DEFAULT 1,
     overall_status TEXT NOT NULL,
@@ -188,9 +189,11 @@ CREATE POLICY owner_all ON patient_conditions FOR ALL USING (auth.uid() = user_i
 CREATE POLICY owner_all ON patient_allergies FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY owner_all ON body_metrics FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY owner_all ON dose_events_v2 FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY owner_all ON patient_snapshots FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY owner_all ON agent_runs FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY owner_all ON agent_summaries FOR ALL USING (auth.uid() = user_id);
+-- Agent execution records are written only by trusted server functions.
+-- Patients may read their own trace but cannot forge or delete it from a client.
+CREATE POLICY owner_read ON patient_snapshots FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY owner_read ON agent_runs FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY owner_read ON agent_summaries FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
 -- medication_schedules owner validation policy
 CREATE POLICY owner_all ON medication_schedules FOR ALL USING (
@@ -202,7 +205,7 @@ CREATE POLICY owner_all ON medication_schedules FOR ALL USING (
 );
 
 -- agent_tool_calls owner validation policy
-CREATE POLICY owner_all ON agent_tool_calls FOR ALL USING (
+CREATE POLICY owner_read ON agent_tool_calls FOR SELECT TO authenticated USING (
     EXISTS (
         SELECT 1 FROM agent_runs
         WHERE agent_runs.id = run_id
@@ -210,8 +213,9 @@ CREATE POLICY owner_all ON agent_tool_calls FOR ALL USING (
     )
 );
 
--- read-only public access to clinical rule registry for active sessions
-CREATE POLICY read_all_clinical_rules ON clinical_rules FOR SELECT USING (true);
+-- Only reviewed and published rules are visible to signed-in clients.
+CREATE POLICY read_published_clinical_rules ON clinical_rules FOR SELECT TO authenticated
+USING (status = 'published');
 
 ---------------------------------------------------------
 -- INDEXES FOR PERFORMANCE
@@ -226,5 +230,9 @@ CREATE INDEX idx_snapshots_user ON patient_snapshots(user_id);
 CREATE INDEX idx_runs_user ON agent_runs(user_id);
 CREATE INDEX idx_tool_calls_run ON agent_tool_calls(run_id);
 CREATE INDEX idx_summaries_run ON agent_summaries(run_id);
+
+REVOKE INSERT, UPDATE, DELETE ON patient_snapshots, agent_runs, agent_tool_calls, agent_summaries FROM anon, authenticated;
+GRANT SELECT ON patient_snapshots, agent_runs, agent_tool_calls, agent_summaries TO authenticated;
+GRANT SELECT ON clinical_rules TO authenticated;
 
 COMMIT;

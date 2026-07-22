@@ -48,6 +48,17 @@ export async function pushYaCheckSnapshot(snapshot: YaCheckSnapshot) {
   });
   if (profileError) throw profileError;
 
+  // Keep the canonical Agent context in sync without exposing server credentials.
+  // The RPC is authenticated and writes only to auth.uid().
+  const { error: agentContextError } = await supabase.rpc('sync_agent_health_context', {
+    p_diseases: snapshot.profile.diseases,
+    p_allergies: snapshot.profile.allergies,
+    p_weight_kg: snapshot.profile.weightKg ?? null,
+  });
+  if (agentContextError) {
+    console.warn('[Sync] Agent health context deferred:', agentContextError.message);
+  }
+
   if (snapshot.cabinet.length) {
     const { error } = await supabase.from('patient_medications').upsert(snapshot.cabinet.map((medicine) => ({
       user_id: userId,
@@ -87,10 +98,13 @@ export async function pushYaCheckSnapshot(snapshot: YaCheckSnapshot) {
 export async function pullYaCheckSnapshot() {
   const { data: sessionData } = await supabase.auth.getSession();
   if (!sessionData.session) return null;
-  const [profileResult, medicinesResult, dosesResult] = await Promise.all([
+  const [profileResult, medicinesResult, dosesResult, conditionsResult, allergiesResult, weightResult] = await Promise.all([
     supabase.from('app_profiles').select('role,diseases,allergies,font_scale,sound_enabled').single(),
     supabase.from('patient_medications').select('*'),
     supabase.from('dose_events').select('client_event_id,taken,event_date,patient_medication_client_id,slot'),
+    supabase.from('patient_conditions').select('code,name').eq('status', 'active'),
+    supabase.from('patient_allergies').select('substance_code,substance_name,severity').is('effective_to', null),
+    supabase.from('body_metrics').select('value,unit,measured_at').eq('metric_type', 'weight').eq('quality_flag', 'good').order('measured_at', { ascending: false }).limit(1).maybeSingle(),
   ]);
   if (medicinesResult.error) throw medicinesResult.error;
   if (dosesResult.error) throw dosesResult.error;
@@ -99,8 +113,26 @@ export async function pullYaCheckSnapshot() {
     if (item.deleted_at) all[item.client_id] = mapRemoteMedicine(item);
     return all;
   }, {});
+  const legacyProfile = (profileResult.data ?? {}) as {
+    role?: UserProfile['role'];
+    diseases?: string[];
+    allergies?: { name?: string; severity?: string }[];
+    font_scale?: UserProfile['fontScale'];
+    sound_enabled?: boolean;
+  };
+  const structuredDiseases = (conditionsResult.data ?? []).map((item) => item.code || item.name).filter(Boolean);
+  const structuredAllergies = (allergiesResult.data ?? []).map((item) => ({
+    name: item.substance_name || item.substance_code,
+    severity: item.severity || 'unknown',
+  }));
+
   return {
-    profile: profileResult.data,
+    profile: {
+      ...legacyProfile,
+      diseases: structuredDiseases.length ? structuredDiseases : (legacyProfile.diseases ?? []),
+      allergies: structuredAllergies.length ? structuredAllergies : (legacyProfile.allergies ?? []),
+      weight_kg: weightResult.data?.unit === 'kg' ? Number(weightResult.data.value) : undefined,
+    },
     cabinet: remoteMedicines.filter((_, index) => !medicinesResult.data[index].deleted_at),
     archivedCabinet,
     takenByDate: dosesResult.data.reduce<Record<string, Record<string, boolean>>>((all, item) => {

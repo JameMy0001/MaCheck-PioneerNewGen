@@ -1,7 +1,21 @@
 export type AdminRole = 'owner' | 'clinical_editor' | 'clinical_reviewer' | 'auditor';
 export type ClinicalStatus = 'draft' | 'in_review' | 'published' | 'archived';
 export type Severity = 'moderate' | 'severe';
-export type Section = 'overview' | 'medications' | 'interactions' | 'food' | 'accounts' | 'admins' | 'audit';
+export type Section = 'overview' | 'medications' | 'interactions' | 'food' | 'agent' | 'accounts' | 'admins' | 'audit';
+
+export interface AgentRuntimeConfig {
+  provider: 'nvidia';
+  primaryModel: string;
+  fallbackModel: string;
+  temperature: number;
+  maxTokens: number;
+  requestTimeoutMs: number;
+  aiEnabled: boolean;
+  promptVersion: string;
+  updatedAt: string;
+  keyConfigured: boolean;
+  safetyPolicyLocked: true;
+}
 
 export interface BulkClinicalResult {
   updated: number;

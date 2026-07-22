@@ -39,5 +39,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.agent-run]
-verify_jwt = false
+verify_jwt = true
 
+[functions.agent-admin]
+verify_jwt = true

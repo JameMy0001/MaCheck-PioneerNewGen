@@ -1,10 +1,7 @@
+import { getMedicine } from '@/data/medicine-db';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import { getAdherence, useAppStore } from '@/store/use-app-store';
 import { checkDrugInteractions, checkFoodQuery, getTodayKey } from '@/utils/safety';
-
-export const NVIDIA_NIM_API_KEY = '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';
-export const NVIDIA_NIM_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-export const NVIDIA_MODEL = 'meta/llama-3.1-70b-instruct';
 
 export interface AgentEvidenceRef {
   type: string;
@@ -14,7 +11,14 @@ export interface AgentEvidenceRef {
 }
 
 export interface AgentSummaryRow {
-  category: 'conditions' | 'allergies' | 'drug_interactions' | 'medication_schedule' | 'medicine_cabinet' | 'adherence' | 'body_metrics';
+  category:
+    | 'conditions'
+    | 'allergies'
+    | 'drug_interactions'
+    | 'medication_schedule'
+    | 'medicine_cabinet'
+    | 'adherence'
+    | 'body_metrics';
   latestData?: string;
   finding: string;
   status: 'ok' | 'info' | 'needs_data' | 'needs_attention' | 'review_required' | 'critical';
@@ -28,6 +32,8 @@ export interface UnifiedAgentSummary {
   summaryId: string;
   generatedAt: string;
   overallStatus: 'ok' | 'critical' | 'needs_attention';
+  executionMode?: 'live' | 'rules_only';
+  modelName?: string;
   llmPersonalizedAdvice?: string;
   rows: AgentSummaryRow[];
   priorities: string[];
@@ -42,422 +48,277 @@ export interface AgentRunResponse {
   status?: string;
   summary?: UnifiedAgentSummary;
   quota_remaining?: number;
+  max_weekly_quota?: number;
   current_tier?: string;
+  execution_mode?: 'live' | 'rules_only';
   error_code?: string;
   message?: string;
 }
 
-/**
- * Direct call to NVIDIA NIM API (Llama 3.1 70B Instruct model)
- */
-export async function callNvidiaLLM(
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
-  modelName: string = NVIDIA_MODEL,
-  temperature: number = 0.2
-): Promise<string | null> {
-  try {
-    const response = await fetch(NVIDIA_NIM_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${NVIDIA_NIM_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: modelName,
-        messages,
-        temperature,
-        max_tokens: 1024,
-      }),
+interface AgentQuotaResponse {
+  allowed: boolean;
+  quota_remaining: number;
+  current_tier: string;
+  runs_this_week?: number;
+  max_weekly_quota: number;
+  message?: string;
+}
+
+const normalize = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('th');
+
+function allergyMatchesMedicine(allergy: string, medicineId: string) {
+  const medicine = getMedicine(medicineId);
+  const allergen = normalize(allergy);
+  if (!allergen) return false;
+  if (normalize(medicineId) === allergen) return true;
+  if (allergen.length < 4) return false;
+  return [medicine?.nameEn, medicine?.nameTh]
+    .filter(Boolean)
+    .some((value) => {
+      const candidate = normalize(value);
+      return candidate.length >= 4 && (candidate === allergen || candidate.includes(allergen) || allergen.includes(candidate));
     });
-
-    if (!response.ok) {
-      console.warn('[NVIDIA NIM API] Server returned error status:', response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    const replyText = data?.choices?.[0]?.message?.content;
-    return typeof replyText === 'string' ? replyText.trim() : null;
-  } catch (err) {
-    console.warn('[NVIDIA NIM API] Network exception:', err);
-    return null;
-  }
 }
 
-/**
- * Generate AI Care Agent Chat Response using live NVIDIA NIM API LLM model
- */
-export async function generateAIChatReplyLive(
-  userText: string,
-  cabinet: any[],
-  profile: any,
-  takenByDate: any,
-  selectedModel: string = NVIDIA_MODEL,
-  temperature: number = 0.2
-): Promise<string> {
-  const activeMeds = cabinet.filter((c) => c.status === 'active');
-  const medNames = activeMeds.map((m) => m.customName || m.medicineId).join(', ');
-  const diseases = profile.diseases?.join(', ') || 'ไม่มี';
-  const allergies = profile.allergies?.join(', ') || 'ไม่มี';
-  const weight = profile.weightKg ? `${profile.weightKg} kg` : 'ไม่ได้บันทึก';
-
-  // 1. Build System Context Prompt
-  const systemPrompt = `คุณคือระบบ AI Care Agent ปัญญาประดิษฐ์ผู้ช่วยวิเคราะห์ความปลอดภัยทางการแพทย์ในแอปพลิเคชัน YaCheck
-บริบทสุขภาพของผู้ป่วยปัจจุบัน:
-- โรคประจำตัว: ${diseases}
-- ประวัติแพ้ยา: ${allergies}
-- น้ำหนักตัว: ${weight}
-- ยาที่ทานอยู่ปัจจุบันในตู้ยา (${activeMeds.length} รายการ): ${medNames || 'ยังไม่มีในตู้ยา'}
-
-คำสั่งและกฎการตอบสนอง:
-1. ตอบเป็นภาษาไทยที่สุภาพ ทางการแพทย์ ชัดเจน และกระชับ
-2. ห้ามใช้สรรพนามเรียกตัวเองว่า "หลาน" เด็ดขาด ให้ใช้ "ระบบ AI Care Agent" หรือไม่ใช้สรรพนามแทนตัวเอง
-3. หากตรวจพบยาตีกัน อาการแพ้ หรือของแสลง ให้ตักเตือนด้วยระดับความรุนแรงที่ถูกต้องตามหลักคลินิก
-4. แนะนำให้ปรึกษาแพทย์หรือเภสัชกรเมื่อพบความเสี่ยงสูง`;
-
-  // 2. Query NVIDIA NIM API LLM
-  const messages = [
-    { role: 'system' as const, content: systemPrompt },
-    { role: 'user' as const, content: userText },
-  ];
-
-  const llmResponse = await callNvidiaLLM(messages, selectedModel, temperature);
-
-  if (llmResponse) {
-    return llmResponse;
-  }
-
-  // 3. Clinical Rules Fallback if API is offline
-  return generateClinicalRuleFallbackReply(userText, cabinet, profile);
-}
-
-function generateClinicalRuleFallbackReply(userText: string, cabinet: any[], profile: any): string {
-  const query = userText.toLowerCase();
+function safeOfflineChatReply(userText: string) {
+  const store = useAppStore.getState();
+  const activeCabinet = store.cabinet.filter((item) => item.status === 'active');
+  const query = normalize(userText);
 
   if (query.includes('ยาตีกัน') || query.includes('ตีกัน')) {
-    const activeMeds = cabinet.filter((c) => c.status === 'active').map((c) => c.medicineId);
-    const findings = checkDrugInteractions(activeMeds);
-    if (findings.length > 0) {
-      return `⚠️ ตรวจพบคำเตือนยาตีกันในตู้ยาของคุณ:\n• ${findings.map((f) => f.title).join('\n• ')}\n\nคำแนะนำ: โปรดติดต่อปรึกษาแพทย์หรือเภสัชกรก่อนทานยาร่วมกันครับ`;
+    const findings = checkDrugInteractions(activeCabinet.map((item) => item.medicineId));
+    if (findings.length) {
+      return `⚠️ [โหมดกฎออฟไลน์] พบคู่ยาที่ต้องตรวจสอบ ${findings.length} คู่:\n• ${findings
+        .map((finding) => finding.title)
+        .join('\n• ')}\n\nอย่าปรับหรือหยุดยาเอง โปรดติดต่อแพทย์หรือเภสัชกรเพื่อยืนยันแนวทางที่เหมาะสม`;
     }
-    return `✅ จากการตรวจสอบยาในตู้ยาปัจจุบัน (${activeMeds.length} รายการ): ไม่พบปฏิกิริยายาตีกันรุนแรงในฐานข้อมูลครับ สามารถทานตามตารางที่ระบุได้ปลอดภัยครับ`;
+    return '[โหมดกฎออฟไลน์] ไม่พบคู่ยาที่ตรงกับฐานข้อมูลในเครื่องที่ตรวจครั้งนี้ ผลนี้ไม่ใช่การรับรองว่ายาทุกชนิดใช้ร่วมกันได้ โปรดตรวจสอบกับแพทย์หรือเภสัชกรเมื่อมีการเปลี่ยนยา';
   }
 
   if (query.includes('ส้มโอ') || query.includes('นม') || query.includes('ของแสลง') || query.includes('กาแฟ')) {
-    const activeMeds = cabinet.filter((c) => c.status === 'active');
-    const foodFindings = checkFoodQuery(userText, activeMeds, profile.diseases || []);
-    if (foodFindings.length > 0 && foodFindings[0]) {
-      const f = foodFindings[0];
-      return `⚠️ ${f.title}:\n${f.description}\n\nคำแนะนำ: ${f.advice || ''}`;
+    const findings = checkFoodQuery(userText, activeCabinet, store.profile.diseases ?? []);
+    if (findings.length) {
+      return `⚠️ [โหมดกฎออฟไลน์] ${findings
+        .map((finding) => `${finding.title}: ${finding.description}\n${finding.advice ?? ''}`)
+        .join('\n\n')}`;
     }
-    return `💡 สำหรับ "${userText}": ไม่พบข้อห้ามรุนแรงกับยาในตู้ยาปัจจุบันของคุณครับ แต่แนะนำให้เว้นระยะห่างจากการทานยาประมาณ 1-2 ชั่วโมงเพื่อการดูดซึมยาที่ดีที่สุดครับ`;
+    return '[โหมดกฎออฟไลน์] ไม่พบข้อมูลที่ตรงกับคำถามในฐานข้อมูลอาหารและยาที่มีอยู่ ระบบไม่สามารถกำหนดช่วงห่างที่เหมาะสมให้ยาทุกชนิดได้ โปรดดูฉลากยาหรือสอบถามเภสัชกร';
   }
 
-  return `🤖 ขอบคุณสำหรับคำถามเกี่ยวกับ "${userText}"\n\nระบบ AI Care Agent ตรวจสอบเบื้องต้นแล้ว ข้อมูลยาและสุขภาพของคุณอยู่ในเกณฑ์ปลอดภัยครับ หากมีอาการผิดปกติหรือต้องการสอบถามเพิ่มเติม สามารถสอบถามระบบ AI หรือติดต่อปรึกษาแพทย์และเภสัชกรได้ครับ`;
+  return '[โหมดกฎออฟไลน์] ระบบยังไม่มีข้อมูลที่เพียงพอสำหรับตอบคำถามนี้อย่างปลอดภัย กรุณาตรวจฉลากยาและสอบถามแพทย์หรือเภสัชกร โดยอย่าปรับ เพิ่ม ลด หรือหยุดยาเอง';
+}
+
+export const generateOfflineChatReply = safeOfflineChatReply;
+
+async function invokeAgentFunction(body: Record<string, unknown>) {
+  if (!isSupabaseConfigured) throw new Error('AGENT_BACKEND_NOT_CONFIGURED');
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) throw new Error('AUTH_REQUIRED');
+
+  const { data, error } = await supabase.functions.invoke('agent-run', { body });
+  if (error) throw new Error(error.message || 'AGENT_REQUEST_FAILED');
+  return data as Record<string, any>;
+}
+
+export async function generateAIChatReplyLive(userText: string): Promise<string> {
+  try {
+    const data = await invokeAgentFunction({
+      intent: 'chat',
+      message: userText.slice(0, 1000),
+    });
+    if (!data.success || typeof data.reply !== 'string') {
+      throw new Error(data.message || 'AGENT_CHAT_FAILED');
+    }
+    return data.execution_mode === 'live'
+      ? `[AI Live]\n${data.reply}`
+      : `[กฎความปลอดภัยจากเซิร์ฟเวอร์]\n${data.reply}`;
+  } catch {
+    return safeOfflineChatReply(userText);
+  }
 }
 
 export function generateLocalAgentSummary(): UnifiedAgentSummary {
   const store = useAppStore.getState();
-  const profile = store.profile;
-  const cabinet = store.cabinet;
-  const takenByDate = store.takenByDate;
+  const { profile, cabinet, takenByDate } = store;
+  const activeCabinet = cabinet.filter((item) => item.status === 'active');
+  const interactions = checkDrugInteractions(activeCabinet.map((item) => item.medicineId));
+  const now = new Date().toISOString();
+  const rows: AgentSummaryRow[] = [];
 
-  const activeCabinet = cabinet.filter((c) => c.status === 'active');
-  const medicineIds = activeCabinet.map((c) => c.medicineId);
-  const interactions = checkDrugInteractions(medicineIds);
+  rows.push({
+    category: 'conditions',
+    latestData: profile.diseases.length ? profile.diseases.join(', ') : 'ไม่ได้ระบุ',
+    finding: profile.diseases.length
+      ? `บันทึกโรคประจำตัวไว้ ${profile.diseases.length} รายการ ระบบออฟไลน์ยังไม่สามารถยืนยันข้อห้ามใช้ยากับทุกโรคได้`
+      : 'ยังไม่ได้บันทึกโรคประจำตัว จึงไม่สามารถตรวจข้อควรระวังระหว่างโรคกับยาได้ครบถ้วน',
+    status: profile.diseases.length ? 'review_required' : 'needs_data',
+    completeness: profile.diseases.length ? 70 : 40,
+    updatedAt: now,
+    evidenceRefs: [{ type: 'patient_entity', id: 'profile.diseases', description: 'ข้อมูลที่ผู้ใช้บันทึกในอุปกรณ์' }],
+  });
 
-  const hasAllergies = profile.allergies && profile.allergies.length > 0;
-  const allergyRows: AgentSummaryRow[] = hasAllergies
-    ? profile.allergies.map((allergy) => ({
-        category: 'allergies',
-        latestData: allergy,
-        finding: `ประวัติแพ้ยาที่บันทึกไว้: ${allergy}`,
-        status: 'needs_attention',
-        completeness: 100,
-        updatedAt: new Date().toISOString(),
-        evidenceRefs: [
-          {
-            type: 'patient_entity',
-            id: `profile.allergies.${allergy}`,
-            description: 'ประวัติแพ้ยาที่ลงทะเบียนโดยผู้ป่วย/ผู้ดูแลในระบบ',
-          },
-        ],
-      }))
-    : [
-        {
-          category: 'allergies',
-          latestData: 'ไม่มีประวัติแพ้ยาพิเศษ',
-          finding: 'ไม่ได้ระบุประวัติแพ้ยาพิเศษ (ใช้คำแนะนำมาตรฐานความปลอดภัย)',
-          status: 'needs_data',
-          completeness: 60,
-          updatedAt: new Date().toISOString(),
-          evidenceRefs: [
-            {
-              type: 'patient_entity',
-              id: 'profile.allergies',
-              description: 'ไม่ได้ระบุรายการยาที่แพ้ หากมีประวัติแพ้ควรบันทึกเพิ่ม',
-            },
-          ],
-        },
-      ];
+  const allergyConflicts = profile.allergies.flatMap((allergy) =>
+    activeCabinet
+      .filter((medicine) => allergyMatchesMedicine(allergy, medicine.medicineId))
+      .map((medicine) => ({ allergy, medicine })),
+  );
+  rows.push({
+    category: 'allergies',
+    latestData: profile.allergies.length ? profile.allergies.join(', ') : 'ไม่ได้ระบุ',
+    finding: allergyConflicts.length
+      ? `พบชื่อยา ${allergyConflicts.length} รายการที่อาจตรงกับประวัติแพ้ยา ต้องให้แพทย์หรือเภสัชกรตรวจสอบทันที`
+      : profile.allergies.length
+        ? 'ไม่พบชื่อยาในตู้ที่ตรงกับประวัติแพ้จากการเทียบชื่อเบื้องต้น ผลนี้ยังไม่ครอบคลุมชื่อพ้องและส่วนประกอบทุกชนิด'
+        : 'ยังไม่ได้บันทึกประวัติแพ้ยา จึงตรวจความเสี่ยงด้านการแพ้ยาได้ไม่ครบถ้วน',
+    status: allergyConflicts.length ? 'critical' : profile.allergies.length ? 'info' : 'needs_data',
+    completeness: profile.allergies.length ? 100 : 40,
+    updatedAt: now,
+    evidenceRefs: [{ type: 'patient_entity', id: 'profile.allergies', description: 'ประวัติแพ้ยาที่ผู้ใช้บันทึก' }],
+  });
 
-  const interactionRows: AgentSummaryRow[] =
-    interactions.length > 0
-      ? interactions.map((i) => ({
-          category: 'drug_interactions',
-          latestData: `${i.title} (${i.severity})`,
-          finding: i.title,
-          status: i.severity === 'severe' ? 'critical' : 'needs_attention',
-          completeness: 100,
-          updatedAt: new Date().toISOString(),
-          evidenceRefs: [
-            {
-              type: 'clinical_rule',
-              id: `MedicineDB.interactions.${i.id}`,
-              description: 'กฎตรวจสอบยาตีกันเชิงคลินิก (Clinical Rule Dataset)',
-            },
-          ],
-        }))
-      : [
-          {
-            category: 'drug_interactions',
-            latestData: activeCabinet.length >= 2 ? 'ไม่พบความเสี่ยง' : 'ยาน้อยกว่า 2 รายการ',
-            finding:
-              activeCabinet.length >= 2
-                ? `วิเคราะห์ยาในตู้ยา ${activeCabinet.length} ตัว: ไม่พบปฏิกิริยายาตีกันรุนแรง (NVIDIA NIM Verified)`
-                : 'ยังมียาน้อยกว่า 2 ตัวในตู้ยา (ไม่มียาคู่ที่เสี่ยงตีกัน)',
-            status: 'ok',
-            completeness: 100,
-            updatedAt: new Date().toISOString(),
-            evidenceRefs: [
-              {
-                type: 'clinical_rule',
-                id: 'MedicineDB.interactions',
-                description: 'ฐานข้อมูลคู่ยาตีกันของระบบ YaCheck',
-              },
-            ],
-          },
-        ];
+  rows.push({
+    category: 'drug_interactions',
+    latestData: interactions.length ? `${interactions.length} คู่ที่ต้องตรวจสอบ` : 'ไม่พบคู่ที่ตรงกับฐานข้อมูลในเครื่อง',
+    finding: interactions.length
+      ? `พบคู่ยาที่ต้องตรวจสอบ ${interactions.length} คู่ โปรดดูรายละเอียดและปรึกษาแพทย์หรือเภสัชกร`
+      : `ตรวจยาใช้งานอยู่ ${activeCabinet.length} รายการแล้ว ไม่พบคู่ที่ตรงกับฐานข้อมูลในเครื่องครั้งนี้ ซึ่งไม่ใช่การรับรองว่าปลอดจากปฏิกิริยาทุกชนิด`,
+    status: interactions.some((item) => item.severity === 'severe')
+      ? 'critical'
+      : interactions.length
+        ? 'needs_attention'
+        : 'info',
+    completeness: activeCabinet.length ? 90 : 40,
+    updatedAt: now,
+    evidenceRefs: interactions.map((item) => ({
+      type: 'clinical_rule',
+      id: `local.interactions.${item.id}`,
+      description: 'กฎคัดกรองในฐานข้อมูลออฟไลน์ของ YaCheck',
+    })),
+  });
 
-  const todayKey = getTodayKey();
-  const takenToday = takenByDate[todayKey] ?? {};
-  const adherence = getAdherence(cabinet, takenToday);
+  const scheduleCount = activeCabinet.reduce((total, medicine) => total + medicine.schedules.length, 0);
+  rows.push({
+    category: 'medication_schedule',
+    latestData: `${scheduleCount} รอบต่อวัน จากยา ${activeCabinet.length} รายการ`,
+    finding: scheduleCount
+      ? `พบตารางยารวม ${scheduleCount} รอบต่อวัน ระบบไม่ได้เปลี่ยนตารางยา`
+      : 'ยังไม่มีตารางเวลารับประทานยาที่ใช้งานอยู่',
+    status: scheduleCount ? 'ok' : 'needs_data',
+    completeness: scheduleCount ? 100 : 30,
+    updatedAt: now,
+    evidenceRefs: [{ type: 'patient_entity', id: 'cabinet.schedules', description: 'ตารางยาในอุปกรณ์' }],
+  });
 
+  rows.push({
+    category: 'medicine_cabinet',
+    latestData: `${activeCabinet.length} รายการกำลังใช้ · ${cabinet.length - activeCabinet.length} รายการหยุดใช้`,
+    finding: activeCabinet.length
+      ? `มีรายการยาที่กำลังใช้อยู่ ${activeCabinet.length} รายการ`
+      : 'ยังไม่มียาที่กำลังใช้อยู่ในตู้ยา',
+    status: activeCabinet.length ? 'ok' : 'needs_data',
+    completeness: activeCabinet.length ? 100 : 30,
+    updatedAt: now,
+    evidenceRefs: [{ type: 'patient_entity', id: 'cabinet', description: 'รายการยาในอุปกรณ์' }],
+  });
+
+  const expectedToday = activeCabinet.reduce((total, medicine) => total + medicine.schedules.length, 0);
+  const adherence = getAdherence(cabinet, takenByDate[getTodayKey()] ?? {});
+  rows.push({
+    category: 'adherence',
+    latestData: expectedToday ? `${adherence}% วันนี้` : 'ไม่มีรอบยาที่ต้องบันทึกวันนี้',
+    finding: expectedToday
+      ? `บันทึกการรับประทานยาวันนี้ได้ ${adherence}% ของรอบที่กำหนด`
+      : 'ยังไม่มีข้อมูลเพียงพอสำหรับคำนวณความสม่ำเสมอวันนี้',
+    status: !expectedToday ? 'needs_data' : adherence >= 80 ? 'ok' : 'needs_attention',
+    completeness: expectedToday ? 100 : 30,
+    updatedAt: now,
+    evidenceRefs: [{ type: 'calculation', id: 'local.adherence.today', description: 'คำนวณจากตารางและบันทึกวันนี้ในอุปกรณ์' }],
+  });
+
+  rows.push({
+    category: 'body_metrics',
+    latestData: profile.weightKg ? `${profile.weightKg} kg` : 'ไม่ได้บันทึก',
+    finding: profile.weightKg
+      ? `บันทึกน้ำหนักล่าสุด ${profile.weightKg} kg เพื่อใช้เป็นข้อมูลประกอบ ระบบยังไม่ได้คำนวณหรือเปลี่ยนขนาดยา`
+      : 'ยังไม่ได้บันทึกน้ำหนักล่าสุด ระบบจะไม่ประเมินความเหมาะสมของขนาดยา',
+    status: profile.weightKg ? 'info' : 'needs_data',
+    completeness: profile.weightKg ? 100 : 40,
+    updatedAt: now,
+    evidenceRefs: [{ type: 'patient_entity', id: 'profile.weightKg', description: 'น้ำหนักที่ผู้ใช้บันทึกในอุปกรณ์' }],
+  });
+
+  const hasCritical = rows.some((row) => row.status === 'critical');
+  const needsAttention = rows.some((row) => ['needs_attention', 'needs_data', 'review_required'].includes(row.status));
   return {
-    schemaVersion: '1.0',
-    summaryId: `summary-${Date.now()}`,
-    generatedAt: new Date().toISOString(),
-    overallStatus: interactions.some((i) => i.severity === 'severe') ? 'critical' : 'ok',
-    rows: [
-      {
-        category: 'conditions',
-        latestData: profile.diseases && profile.diseases.length > 0 ? profile.diseases.join(', ') : 'ไม่ได้ระบุ',
-        finding:
-          profile.diseases && profile.diseases.length > 0
-            ? `โรคประจำตัวที่ระบุไว้: ${profile.diseases.join(', ')}`
-            : 'ไม่ได้บันทึกโรคประจำตัวเพิ่มเติม',
-        status: 'ok',
-        completeness: 100,
-        updatedAt: new Date().toISOString(),
-        evidenceRefs: [
-          {
-            type: 'patient_entity',
-            id: 'profile.diseases',
-            description: 'ประวัติโรคประจำตัวจากฟอร์มตั้งค่าโปรไฟล์ผู้ป่วย',
-          },
-        ],
-      },
-      ...allergyRows,
-      ...interactionRows,
-      {
-        category: 'medication_schedule',
-        latestData: `${activeCabinet.length} รายการในตู้ยา`,
-        finding: `ตารางเวลาทานยาประจำวัน (${activeCabinet.length} รายการในตู้ยา)`,
-        status: 'ok',
-        completeness: 100,
-        updatedAt: new Date().toISOString(),
-        evidenceRefs: [
-          {
-            type: 'patient_entity',
-            id: 'cabinet.timeSlots',
-            description: 'แผนกำหนดช่วงเวลาทานยาของคนไข้ประจำวัน',
-          },
-        ],
-      },
-      {
-        category: 'adherence',
-        latestData: `${adherence}% ความสม่ำเสมอวันนี้`,
-        finding: `ความสม่ำเสมอในการทานยาประวัติวันนี้: ${adherence}%`,
-        status: adherence >= 80 ? 'ok' : 'needs_attention',
-        completeness: 100,
-        updatedAt: new Date().toISOString(),
-        evidenceRefs: [
-          {
-            type: 'calculation',
-            id: 'adherence_rate',
-            description: 'สูตรประเมินสัดส่วนการทานยาจริง เทียบกับ แผนการทานยาวันนี้',
-          },
-        ],
-      },
-      {
-        category: 'body_metrics',
-        latestData: profile.weightKg && profile.weightKg > 0 ? `${profile.weightKg} kg` : 'ไม่ได้บันทึก',
-        finding:
-          profile.weightKg && profile.weightKg > 0
-            ? `น้ำหนักตัวล่าสุด: ${profile.weightKg} kg (ผ่านการประเมินสัดส่วนยารายบุคคล)`
-            : 'ไม่ได้บันทึกน้ำหนักตัวล่าสุด (ใช้อัตราคำนวณยาทั่วไป)',
-        status: profile.weightKg && profile.weightKg > 0 ? 'ok' : 'needs_data',
-        completeness: profile.weightKg && profile.weightKg > 0 ? 100 : 40,
-        updatedAt: new Date().toISOString(),
-        evidenceRefs: [
-          {
-            type: 'patient_entity',
-            id: 'profile.weightKg',
-            description: 'ข้อมูลน้ำหนักตัวระบุโดยผู้ใช้ สำหรับคำนวณขนาดยา',
-          },
-        ],
-      },
-    ],
-    priorities: ['ตรวจสอบเวลาทานยาให้ตรงตามตารางอย่างสม่ำเสมอ'],
-    missingData: profile.weightKg && profile.weightKg > 0 ? [] : ['น้ำหนักตัวล่าสุด'],
+    schemaVersion: '1.1',
+    summaryId: `local-summary-${Date.now()}`,
+    generatedAt: now,
+    overallStatus: hasCritical ? 'critical' : needsAttention ? 'needs_attention' : 'ok',
+    executionMode: 'rules_only',
+    llmPersonalizedAdvice:
+      '[โหมดกฎออฟไลน์] แสดงผลคัดกรองจากข้อมูลในอุปกรณ์เท่านั้น ระบบไม่ได้ใช้ AI และไม่ได้เปลี่ยนแผนการรักษา',
+    rows,
+    priorities: hasCritical ? ['ติดต่อแพทย์หรือเภสัชกรเพื่อตรวจสอบความเสี่ยงที่พบ'] : [],
+    missingData: rows.filter((row) => row.status === 'needs_data').map((row) => row.category),
     allowedActions: ['refresh_summary'],
     unchangedTreatment: true,
   };
 }
 
 export async function runAgentAnalysis(): Promise<AgentRunResponse> {
-  const store = useAppStore.getState();
-  const summary = generateLocalAgentSummary();
-  const quota = await fetchUserQuota();
-
-  if (!quota.allowed && quota.current_tier !== 'admin') {
+  try {
+    const data = await invokeAgentFunction({
+      intent: 'summary',
+    });
+    return data as unknown as AgentRunResponse;
+  } catch (error) {
+    const quota = await fetchUserQuota();
     return {
-      success: false,
-      error_code: 'QUOTA_EXCEEDED',
-      message: `คุณใช้โควตาฟรีครบ ${quota.max_weekly_quota || 7} ครั้งในสัปดาห์นี้แล้ว`,
-      quota_remaining: 0,
-      current_tier: quota.current_tier || 'free',
+      success: true,
+      status: 'completed_rules_only',
+      summary: generateLocalAgentSummary(),
+      quota_remaining: quota.quota_remaining,
+      max_weekly_quota: quota.max_weekly_quota,
+      current_tier: quota.current_tier,
+      execution_mode: 'rules_only',
+      message: error instanceof Error ? error.message : 'AGENT_BACKEND_UNAVAILABLE',
     };
   }
-
-  // Query Live NVIDIA NIM LLM for Personalized Advice
-  const promptMessage = [
-    {
-      role: 'system' as const,
-      content:
-        'คุณคือระบบ AI Care Agent วิเคราะห์สรุปความปลอดภัยในการใช้ยาของผู้ป่วยในแอป YaCheck กรุณาเขียนบทวิเคราะห์สุขภาพและความปลอดภัยของการใช้ยาแบบส่วนบุคคล ความยาว 2-3 ประโยคสั้นๆ เน้นความอบอุ่น ชัดเจน ปลอดภัย ตอบเป็นภาษาไทยอย่างสุภาพ ห้ามใช้สรรพนามเรียกตัวเองว่าหลานเด็ดขาด',
-    },
-    {
-      role: 'user' as const,
-      content: `ข้อมูลผู้ป่วย: ชื่อ ${store.profile.displayName || store.profile.username}, ตู้ยา ${store.cabinet.length} รายการ, โรคประจำตัว: ${store.profile.diseases?.join(', ') || 'ไม่มี'}, แพ้ยา: ${store.profile.allergies?.join(', ') || 'ไม่มี'}, น้ำหนัก: ${store.profile.weightKg || 'ไม่ได้ระบุ'} kg.`,
-    },
-  ];
-
-  const aiAdvice = await callNvidiaLLM(promptMessage);
-  if (aiAdvice) {
-    summary.llmPersonalizedAdvice = aiAdvice;
-  } else {
-    summary.llmPersonalizedAdvice = `วิเคราะห์ประวัติสุขภาพเสร็จสมบูรณ์: ผู้ป่วยมีรายการยาในตู้ยา ${store.cabinet.length} รายการ ข้อมูลยาอยู่ในเกณฑ์ความปลอดภัยมาตรฐานครับ`;
-  }
-
-  return {
-    success: true,
-    summary,
-    quota_remaining: quota.quota_remaining ?? 7,
-    current_tier: quota.current_tier ?? 'free',
-  };
 }
 
-export async function fetchUserQuota() {
+export async function requestAgentReview(summaryId: string) {
+  const data = await invokeAgentFunction({ intent: 'request_review', summaryId });
+  if (!data.success) throw new Error(data.message || 'REVIEW_REQUEST_FAILED');
+  return data as { success: true; requestId: string };
+}
+
+export async function fetchUserQuota(): Promise<AgentQuotaResponse> {
   if (!isSupabaseConfigured) {
-    return { allowed: true, quota_remaining: 7, current_tier: 'free', max_weekly_quota: 7 };
+    return { allowed: true, quota_remaining: 7, current_tier: 'local', max_weekly_quota: 7 };
   }
   try {
-    const store = useAppStore.getState();
-    const cleanUsername = (store.profile.username || store.profile.displayName || 'dev_01').replace(/^@/, '').trim().toLowerCase();
-
-    // 1. Try RPC check_user_agent_quota_by_handle passing cleanUsername
-    const { data: handleData, error: handleErr } = await supabase.rpc('check_user_agent_quota_by_handle', {
-      p_handle: cleanUsername,
-    });
-
-    if (!handleErr && handleData) {
-      const res = Array.isArray(handleData) ? handleData[0] : handleData;
-      if (res && res.current_tier && res.current_tier !== 'free') {
-        return res;
-      }
-    }
-
-    // 2. Query app_profiles directly via session user_id
     const { data: sessionData } = await supabase.auth.getSession();
-    const currentUid = sessionData.session?.user?.id;
-
-    if (currentUid) {
-      const { data: profileRow } = await supabase
-        .from('app_profiles')
-        .select('subscription_tier, custom_quota_override, role')
-        .eq('user_id', currentUid)
-        .maybeSingle();
-
-      if (profileRow) {
-        const tier = profileRow.subscription_tier || (profileRow.role === 'admin' ? 'admin' : 'free');
-        const isUnlimited = tier === 'admin' || profileRow.role === 'admin';
-        const maxQuota = profileRow.custom_quota_override ?? (tier === 'pro' ? 50 : tier === 'family' ? 200 : isUnlimited ? 9999 : 7);
-
-        return {
-          allowed: true,
-          quota_remaining: isUnlimited ? 9999 : maxQuota,
-          current_tier: tier,
-          max_weekly_quota: maxQuota,
-        };
-      }
+    if (!sessionData.session) {
+      return { allowed: false, quota_remaining: 0, current_tier: 'free', max_weekly_quota: 7, message: 'AUTH_REQUIRED' };
     }
-
-    // 3. Query account_handles by username handle to resolve user_id directly
-    const { data: handleRow } = await supabase
-      .from('account_handles')
-      .select('user_id')
-      .ilike('handle', cleanUsername)
-      .maybeSingle();
-
-    const uid = handleRow?.user_id;
-    if (uid) {
-      const { data: profileRow } = await supabase
-        .from('app_profiles')
-        .select('subscription_tier, custom_quota_override, role')
-        .eq('user_id', uid)
-        .maybeSingle();
-
-      if (profileRow) {
-        const tier = profileRow.subscription_tier || (profileRow.role === 'admin' ? 'admin' : 'free');
-        const isUnlimited = tier === 'admin' || profileRow.role === 'admin';
-        const maxQuota = profileRow.custom_quota_override ?? (tier === 'pro' ? 50 : tier === 'family' ? 200 : isUnlimited ? 9999 : 7);
-
-        return {
-          allowed: true,
-          quota_remaining: isUnlimited ? 9999 : maxQuota,
-          current_tier: tier,
-          max_weekly_quota: maxQuota,
-        };
-      }
-    }
-
-    // 4. Try RPC check_user_agent_quota
-    const { data: rpcData, error: rpcErr } = await supabase.rpc('check_user_agent_quota');
-    if (!rpcErr && rpcData) {
-      const res = Array.isArray(rpcData) ? rpcData[0] : rpcData;
-      if (res && res.current_tier) {
-        return res;
-      }
-    }
-
-    if (!handleErr && handleData) {
-      const res = Array.isArray(handleData) ? handleData[0] : handleData;
-      if (res) return res;
-    }
-
-    return { allowed: true, quota_remaining: 7, current_tier: 'free', max_weekly_quota: 7 };
-  } catch (_) {
-    return { allowed: true, quota_remaining: 7, current_tier: 'free', max_weekly_quota: 7 };
+    const { data, error } = await supabase.rpc('check_user_agent_quota');
+    if (error) throw error;
+    const result = Array.isArray(data) ? data[0] : data;
+    if (!result) throw new Error('QUOTA_NOT_AVAILABLE');
+    return {
+      allowed: Boolean(result.allowed),
+      quota_remaining: Number(result.quota_remaining ?? 0),
+      current_tier: String(result.current_tier ?? 'free'),
+      runs_this_week: Number(result.runs_this_week ?? 0),
+      max_weekly_quota: Number(result.max_weekly_quota ?? 7),
+    };
+  } catch {
+    return {
+      allowed: false,
+      quota_remaining: 0,
+      current_tier: 'free',
+      max_weekly_quota: 7,
+      message: 'ไม่สามารถตรวจสอบโควตาจากเซิร์ฟเวอร์ได้',
+    };
   }
 }

@@ -8,11 +8,14 @@ import { startCaregiverMessaging, stopCaregiverMessaging } from '@/services/care
 import { supabase } from '@/services/supabase';
 import { pullYaCheckSnapshot, pushYaCheckSnapshot } from '@/services/sync';
 import { useAppStore } from '@/store/use-app-store';
+import { useAgentStore } from '@/store/use-agent-store';
 
 import { DraggableAgentButton } from '@/components/agent/draggable-agent-button';
 
 export default function RootLayout() {
   const hydrated = useAppStore((state) => state.hydrated);
+  const authenticated = useAppStore((state) => state.authenticated);
+  const registered = useAppStore((state) => state.registered);
   useEffect(() => {
     if (!hydrated) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -30,6 +33,7 @@ export default function RootLayout() {
             role: remote.profile.role,
             diseases: remote.profile.diseases ?? [],
             allergies: (remote.profile.allergies ?? []).map((item: { name?: string }) => item.name).filter(Boolean) as string[],
+            weightKg: remote.profile.weight_kg,
             fontScale: remote.profile.font_scale,
             soundEnabled: remote.profile.sound_enabled,
           } : undefined,
@@ -47,12 +51,18 @@ export default function RootLayout() {
       const authenticated = Boolean(data.session);
       setAuthState(true, authenticated);
       if (authenticated) void startSync();
-      else stopCaregiverMessaging();
+      else {
+        stopCaregiverMessaging();
+        useAgentStore.getState().resetAgentStore();
+      }
     });
     const authSubscription = supabase.auth.onAuthStateChange((_event, session) => {
       setAuthState(true, Boolean(session));
       if (session) void startSync();
-      else stopCaregiverMessaging();
+      else {
+        stopCaregiverMessaging();
+        useAgentStore.getState().resetAgentStore();
+      }
     });
     const storeSubscription = useAppStore.subscribe((state, previous) => {
       if (!state.authenticated || !state.hydrated) return;
@@ -91,8 +101,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings" options={{ title: 'ตั้งค่าและโปรไฟล์' }} />
         <Stack.Screen name="agent-run" options={{ title: 'AI Care Agent', headerShown: false }} />
       </Stack>
-      <DraggableAgentButton />
+      {authenticated && registered ? <DraggableAgentButton /> : null}
     </>
   );
 }
-

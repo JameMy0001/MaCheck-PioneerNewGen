@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Image, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Animated, Image, PanResponder, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { fetchUserQuota } from '@/services/agent';
@@ -9,6 +9,7 @@ const fabIconImage = require('../../../assets/images/ai-agent-fab.png');
 
 export function DraggableAgentButton() {
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
   const { isBubbleVisible, bubblePosition, setBubblePosition, quotaRemaining, currentTier, updateQuotaState } = useAgentStore();
 
   useEffect(() => {
@@ -17,17 +18,16 @@ export function DraggableAgentButton() {
         updateQuotaState(q.quota_remaining ?? 7, q.current_tier ?? 'free', q.max_weekly_quota ?? 7);
       }
     });
-  }, []);
+  }, [updateQuotaState]);
 
-  const pan = useRef(new Animated.ValueXY({ x: bubblePosition.x, y: bubblePosition.y })).current;
-  const isDragging = useRef(false);
+  const [pan] = useState(() => new Animated.ValueXY({ x: bubblePosition.x, y: bubblePosition.y }));
 
   const handlePress = () => {
     router.push('/agent-run' as any);
   };
 
-  const panResponder = useRef(
-    PanResponder.create({
+  const panResponder = useMemo(
+    () => PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
@@ -37,31 +37,25 @@ export function DraggableAgentButton() {
         return Math.abs(gestureState.dx) > 4 || Math.abs(gestureState.dy) > 4;
       },
       onPanResponderGrant: () => {
-        isDragging.current = false;
-        pan.setOffset({
-          x: (pan.x as any)._value,
-          y: (pan.y as any)._value,
-        });
-        pan.setValue({ x: 0, y: 0 });
+        pan.extractOffset();
       },
-      onPanResponderMove: (_, gestureState) => {
-        if (Math.abs(gestureState.dx) > 4 || Math.abs(gestureState.dy) > 4) {
-          isDragging.current = true;
-        }
-        Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false })(_, gestureState);
-      },
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
       onPanResponderRelease: () => {
         pan.flattenOffset();
-        setBubblePosition({
-          x: (pan.x as any)._value,
-          y: (pan.y as any)._value,
+        pan.stopAnimation((position) => {
+          const bounded = {
+            x: Math.min(Math.max(position.x, 0), Math.max(width - 68, 0)),
+            y: Math.min(Math.max(position.y, 0), Math.max(height - 140, 0)),
+          };
+          pan.setValue(bounded);
+          setBubblePosition(bounded);
         });
-        if (!isDragging.current) {
-          handlePress();
-        }
       },
-    })
-  ).current;
+    }),
+    [height, pan, setBubblePosition, width],
+  );
 
   if (!isBubbleVisible) return null;
 

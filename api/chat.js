@@ -3,8 +3,8 @@ import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
 
 export default async function handler(req, res) {
-  // Allow CORS from localhost for local testing
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Restrict the prototype proxy to its configured origin.
+  res.setHeader('Access-Control-Allow-Origin', process.env.AGENT_WEB_ORIGIN || 'http://localhost:3000');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
 
@@ -17,9 +17,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { model, messages, temperature, max_tokens, apiKey } = req.body;
-    
-    const key = apiKey || process.env.NVIDIA_API_KEY || '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';
+    const { model, messages, temperature, max_tokens } = req.body ?? {};
+    const key = process.env.NVIDIA_API_KEY;
+    if (!key) return res.status(503).json({ error: 'AI service is not configured' });
+    const allowedModels = new Set([
+      'meta/llama-3.1-8b-instruct',
+      'meta/llama-3.1-70b-instruct',
+      'nvidia/llama-3.1-nemotron-70b-instruct',
+    ]);
+    if (!Array.isArray(messages) || messages.length === 0 || messages.length > 12) {
+      return res.status(400).json({ error: 'Invalid messages' });
+    }
+    if (messages.some((message) => !['system', 'user', 'assistant'].includes(message?.role) || typeof message?.content !== 'string' || message.content.length > 8000)) {
+      return res.status(400).json({ error: 'Invalid message content' });
+    }
 
     // 1. Initialize LangChain ChatOpenAI configured for NVIDIA NIM
     const chatModel = new ChatOpenAI({
@@ -27,9 +38,9 @@ export default async function handler(req, res) {
       configuration: {
         baseURL: "https://integrate.api.nvidia.com/v1"
       },
-      modelName: model || "meta/llama-3.1-70b-instruct",
-      temperature: temperature !== undefined ? temperature : 0.2,
-      maxTokens: max_tokens || 1024
+      modelName: allowedModels.has(model) ? model : "meta/llama-3.1-70b-instruct",
+      temperature: Number.isFinite(Number(temperature)) ? Math.min(Math.max(Number(temperature), 0), 0.3) : 0.2,
+      maxTokens: Number.isFinite(Number(max_tokens)) ? Math.min(Math.max(Number(max_tokens), 1), 1024) : 512
     });
 
     // 2. Map standard messages to LangChain Message objects (SystemMessage, HumanMessage, AIMessage)

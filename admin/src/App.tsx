@@ -11,6 +11,7 @@ const Overview = lazy(() => import('./pages/Overview').then((module) => ({ defau
 const Medications = lazy(() => import('./pages/Medications').then((module) => ({ default: module.Medications })));
 const Interactions = lazy(() => import('./pages/Interactions').then((module) => ({ default: module.Interactions })));
 const FoodInteractions = lazy(() => import('./pages/FoodInteractions').then((module) => ({ default: module.FoodInteractions })));
+const AgentSettings = lazy(() => import('./pages/AgentSettings').then((module) => ({ default: module.AgentSettings })));
 const Accounts = lazy(() => import('./pages/Accounts').then((module) => ({ default: module.Accounts })));
 const Admins = lazy(() => import('./pages/Admins').then((module) => ({ default: module.Admins })));
 const Audit = lazy(() => import('./pages/Audit').then((module) => ({ default: module.Audit })));
@@ -61,6 +62,7 @@ export function App() {
         {section === 'medications' ? <Medications role={role} /> : null}
         {section === 'interactions' ? <Interactions role={role} /> : null}
         {section === 'food' ? <FoodInteractions role={role} /> : null}
+        {section === 'agent' ? <AgentSettings role={role} /> : null}
         {section === 'accounts' ? <Accounts /> : null}
         {section === 'admins' ? <Admins role={role} /> : null}
         {section === 'audit' ? <Audit /> : null}

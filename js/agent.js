@@ -13,7 +13,6 @@ const Agent = {
 2. หากพบความเสี่ยงหรือข้อมูลไม่ครบถ้วน ให้เตือนและแนะนำให้ปรึกษาแพทย์หรือเภสัชกร
 3. ห้ามสั่งเพิ่ม ลด หรือหยุดยาด้วยตัวเองโดยเด็ดขาด`,
     selectedModel: 'meta/llama-3.1-70b-instruct',
-    nvidiaApiKey: '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',
     temperature: 0.2,
     messages: [
       { sender: 'agent', text: 'สวัสดีครับ ผมคือผู้ช่วย AI เช็คสุขภาพและยา (YaCheck Care Agent) ยินดีต้อนรับเข้าสู่ระบบทดลองเล่นครับ คุณสามารถกดเริ่มวิเคราะห์ประวัติสุขภาพ หรือพิมพ์คุยสอบถามข้อมูลเกี่ยวกับยาและร่างกายของคุณได้จากกล่องข้อความด้านล่างครับ' }
@@ -155,8 +154,7 @@ const Agent = {
         model: payload.model,
         messages: payload.messages,
         temperature: payload.temperature,
-        max_tokens: payload.max_tokens,
-        apiKey: this.state.nvidiaApiKey
+        max_tokens: payload.max_tokens
       })
     });
     if (!response.ok) {
@@ -871,12 +869,6 @@ ${this.state.systemPrompt}
             <textarea id="playground-prompt-editor" onchange="Agent.updateSystemPrompt(this.value)" style="width:100%; height:80px; background:#0f172a; border:1px solid #334155; border-radius:4px; padding:8px; font-size:0.8rem; color:#f1f5f9; font-family:monospace; resize:none;">${this.state.systemPrompt}</textarea>
           </div>
 
-          <!-- แก้ไข API Key -->
-          <div>
-            <label style="font-size:0.92rem; font-weight:700; color:#cbd5e1; display:block; margin-bottom:4px;">NVIDIA API Key</label>
-            <input type="password" id="playground-api-key" value="${this.state.nvidiaApiKey}" onchange="Agent.updateApiKey(this.value)" style="width:100%; height:32px; background:#0f172a; border:1px solid #334155; border-radius:4px; padding:0 8px; font-size:0.8rem; color:#f1f5f9; width: 100%;" placeholder="ใส่คีย์ NVIDIA API ที่นี่...">
-          </div>
-
           <div style="display:grid; grid-template-columns:1fr 1.2fr; gap:12px;">
             <!-- เลือกรุ่น Model -->
             <div>
@@ -960,10 +952,6 @@ ${this.state.systemPrompt}
   toggleOutage(checked) {
     this.state.outageMode = checked;
     this.render();
-  },
-
-  updateApiKey(val) {
-    this.state.nvidiaApiKey = val;
   },
 
   updateSystemPrompt(val) {

@@ -7,6 +7,7 @@ const items: { id: Section; label: string; icon: string }[] = [
   { id: 'medications', label: 'รายการยา', icon: '●' },
   { id: 'interactions', label: 'ยาตีกัน', icon: '⇄' },
   { id: 'food', label: 'อาหารและยา', icon: '◇' },
+  { id: 'agent', label: 'AI Agent', icon: '✦' },
   { id: 'accounts', label: 'บัญชีผู้ใช้', icon: '○' },
   { id: 'admins', label: 'ทีมแอดมิน', icon: '♙' },
   { id: 'audit', label: 'ประวัติการแก้ไข', icon: '↺' },

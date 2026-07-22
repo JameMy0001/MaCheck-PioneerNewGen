@@ -5,7 +5,7 @@ import { Alert, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { Field, PrimaryButton, SectionCard, useFontMultiplier } from '@/components/ui';
 import { colors, diseaseOptions } from '@/constants/theme';
 import { useAppStore } from '@/store/use-app-store';
-import { deleteAccount, signOut } from '@/services/auth';
+import { signOut } from '@/services/auth';
 import type { FontScale } from '@/types/models';
 
 import { useAgentStore } from '@/store/use-agent-store';
@@ -24,14 +24,28 @@ export default function SettingsScreen() {
 
   const multiplier = useFontMultiplier();
   const [allergy, setAllergy] = useState('');
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const resetAll = () => Alert.alert('ลบข้อมูลในเครื่องทั้งหมด?', 'ตู้ยา ประวัติ และโปรไฟล์จะถูกลบออกจากอุปกรณ์นี้', [
     { text: 'ยกเลิก', style: 'cancel' },
     { text: 'ลบข้อมูล', style: 'destructive', onPress: () => { void signOut().finally(() => { reset(); router.replace('/register'); }); } },
   ]);
-  const deleteCloudAccount = () => Alert.alert('ลบบัญชีถาวร?', 'บัญชี ตู้ยา โรค แพ้ยา และประวัติที่ซิงก์ไว้จะถูกลบจากฐานกลางและไม่สามารถกู้คืนได้', [
+  const logOut = () => Alert.alert('ออกจากระบบ?', 'ข้อมูลในเครื่องนี้จะถูกล้างเพื่อความเป็นส่วนตัว แต่บัญชีและข้อมูลที่ซิงก์ไว้บนฐานข้อมูลกลางจะไม่ถูกลบ', [
     { text: 'ยกเลิก', style: 'cancel' },
-    { text: 'ลบบัญชีถาวร', style: 'destructive', onPress: () => { void deleteAccount().then(() => { reset(); router.replace('/register'); }).catch((error) => Alert.alert('ลบไม่สำเร็จ', error instanceof Error ? error.message : 'กรุณาลองใหม่')); } },
+    {
+      text: 'ออกจากระบบ',
+      onPress: () => {
+        setLoggingOut(true);
+        void signOut()
+          .then(({ error }) => {
+            if (error) throw error;
+            reset();
+            router.replace('/register');
+          })
+          .catch((error) => Alert.alert('ออกจากระบบไม่สำเร็จ', error instanceof Error ? error.message : 'กรุณาลองใหม่'))
+          .finally(() => setLoggingOut(false));
+      },
+    },
   ]);
 
   return (
@@ -99,8 +113,8 @@ export default function SettingsScreen() {
       </SectionCard>
 
       <PrimaryButton label="ลบข้อมูลทั้งหมดในเครื่อง" tone="danger" onPress={resetAll} />
-      <PrimaryButton label="ลบบัญชีและข้อมูลบนฐานกลางถาวร" tone="danger" onPress={deleteCloudAccount} />
-      <Text selectable style={{ color: colors.muted, textAlign: 'center', lineHeight: 20 }}>การลบข้อมูลในเครื่องจะออกจากระบบ แต่ไม่ลบบัญชีหรือข้อมูลสำรองบนฐานกลาง</Text>
+      <PrimaryButton label={loggingOut ? 'กำลังออกจากระบบ…' : 'Log out'} tone="neutral" onPress={logOut} disabled={loggingOut} />
+      <Text selectable style={{ color: colors.muted, textAlign: 'center', lineHeight: 20 }}>ทั้งการลบข้อมูลในเครื่องและการออกจากระบบจะไม่ลบบัญชีหรือข้อมูลที่ซิงก์ไว้บนฐานข้อมูลกลาง</Text>
     </ScrollView>
   );
 }
