@@ -18,10 +18,12 @@ import { useRouter } from 'expo-router';
 import { useFontMultiplier } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import {
+  type AgentChatTurn,
+  type AgentConversationMode,
   fetchUserQuota,
   generateAIChatReplyLive,
   generateLocalAgentSummary,
-  generateOfflineChatReply,
+  generateOfflineChatResponse,
   requestAgentReview,
   runAgentAnalysis,
 } from '@/services/agent';
@@ -81,6 +83,7 @@ export default function AgentRunScreen() {
   // Chat State
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [conversationMode, setConversationMode] = useState<AgentConversationMode>('general');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -170,6 +173,14 @@ export default function AgentRunScreen() {
       timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
     };
 
+    const conversationHistory: AgentChatTurn[] = chatMessages
+      .filter((message) => message.id !== 'welcome')
+      .slice(-10)
+      .map((message) => ({
+        role: message.sender === 'user' ? 'user' : 'assistant',
+        content: message.text,
+      }));
+
     setChatMessages((prev) => [...prev, userMsg]);
     setInputText('');
     setIsTyping(true);
@@ -179,22 +190,24 @@ export default function AgentRunScreen() {
     }, 100);
 
     try {
-      const replyText = __DEV__ && outageMode
-        ? generateOfflineChatReply(text)
-        : await generateAIChatReplyLive(text);
+      const response = __DEV__ && outageMode
+        ? generateOfflineChatResponse(text, conversationHistory, conversationMode)
+        : await generateAIChatReplyLive(text, conversationHistory, conversationMode);
+      setConversationMode(response.conversationMode);
       const agentMsg: ChatMessage = {
         id: nextChatMessageId('agent'),
         sender: 'agent',
-        text: replyText,
+        text: response.text,
         timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
       };
       setChatMessages((prev) => [...prev, agentMsg]);
     } catch {
-      const fallbackText = generateOfflineChatReply(text);
+      const fallback = generateOfflineChatResponse(text, conversationHistory, conversationMode);
+      setConversationMode(fallback.conversationMode);
       const agentMsg: ChatMessage = {
         id: nextChatMessageId('agent'),
         sender: 'agent',
-        text: fallbackText,
+        text: fallback.text,
         timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
       };
       setChatMessages((prev) => [...prev, agentMsg]);
@@ -494,6 +507,24 @@ export default function AgentRunScreen() {
           >
             {/* Quick Prompts */}
             <Text style={[styles.quickPromptTitle, { fontSize: 13 * multiplier }]}>💡 คำถามสืบค้นที่พบบ่อย:</Text>
+            {conversationMode === 'symptom_intake' ? (
+              <View style={styles.intakeStatusRow}>
+                <Text style={styles.intakeStatusText}>🩺 กำลังซักประวัติอาการก่อนประเมินเรื่องยา</Text>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="เริ่มคำถามใหม่และล้างประวัติการซักอาการ"
+                  hitSlop={8}
+                  style={styles.newConversationButton}
+                  onPress={() => {
+                    setConversationMode('general');
+                    setChatMessages((messages) => messages.slice(0, 1));
+                    setInputText('');
+                  }}
+                >
+                  <Text style={styles.newConversationText}>เริ่มคำถามใหม่</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
               {quickPrompts.map((prompt, i) => (
                 <TouchableOpacity key={i} style={styles.promptChip} onPress={() => handleSendMessage(prompt)}>
@@ -944,6 +975,31 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontWeight: '700',
     marginBottom: 6,
+  },
+  intakeStatusRow: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  intakeStatusText: {
+    color: colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  newConversationText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
+    textDecorationLine: 'underline',
+  },
+  newConversationButton: {
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
+    minHeight: 44,
   },
   promptChip: {
     backgroundColor: colors.surface,

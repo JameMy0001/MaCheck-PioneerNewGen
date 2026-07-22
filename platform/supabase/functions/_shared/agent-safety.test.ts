@@ -1,6 +1,7 @@
 import {
   clampAgentTemperature,
   isUnsafeClinicalOutput,
+  isUnsafeSymptomIntakeOutput,
 } from "./agent-safety.ts";
 
 function assertEquals(actual: unknown, expected: unknown) {
@@ -34,4 +35,17 @@ Deno.test("clamps model temperature to the clinical safety range", () => {
   assertEquals(clampAgentTemperature(0.2), 0.2);
   assertEquals(clampAgentTemperature(0.9), 0.3);
   assertEquals(clampAgentTemperature(Number.NaN), 0.2);
+});
+
+Deno.test("blocks medication recommendations during symptom intake", () => {
+  assertEquals(
+    isUnsafeSymptomIntakeOutput("อาการแบบนี้แนะนำให้กินยาพาราเซตามอล"),
+    true,
+  );
+  assertEquals(
+    isUnsafeSymptomIntakeOutput(
+      "ขอถามเพิ่มก่อนประเมินเรื่องยา: อาการเริ่มเมื่อไร?",
+    ),
+    false,
+  );
 });

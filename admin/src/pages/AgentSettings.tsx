@@ -141,6 +141,8 @@ export function AgentSettings({ role }: { role: AdminRole }) {
       <section className="panel agent-safety-panel">
         <div className="panel__heading"><h2>ส่วนที่ล็อกเพื่อความปลอดภัย</h2></div>
         <ul>
+          <li>บังคับซักประวัติอาการเพิ่มเติมก่อนตอบคำถามประเภท “มีอาการนี้ควรกินยาอะไร”</li>
+          <li>คัดกรองสัญญาณฉุกเฉินด้วย Clinical Rules ก่อนส่งบทสนทนาให้ LLM</li>
           <li>ห้าม AI กำหนด เพิ่ม ลด หยุด หรือเปลี่ยนยา</li>
           <li>ตรวจคำตอบที่มีตัวเลขขนาดยาและคำสั่งรักษาก่อนส่งให้ผู้ใช้</li>
           <li>ใช้ Clinical Rules ก่อน LLM และกลับสู่ Rules-only mode เมื่อผู้ให้บริการล้มเหลว</li>

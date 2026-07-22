@@ -12,3 +12,13 @@ export function isUnsafeClinicalOutput(text: string) {
   ];
   return unsafePatterns.some((pattern) => pattern.test(text));
 }
+
+export function isUnsafeSymptomIntakeOutput(text: string) {
+  const medicationRecommendationPatterns = [
+    /(?:แนะนำ|ควร|ลอง|สามารถ|อาจ(?:จะ)?)(?:ให้)?\s*(?:กิน|ทาน|รับประทาน|ใช้)\s*ยา/iu,
+    /(?:แนะนำ|เลือก|เหมาะ)(?:ให้|สำหรับ)?[^\n.!?]{0,24}(?:ยา|พาราเซตามอล|ไอบูโพรเฟน|ibuprofen|paracetamol)/iu,
+    /(?:กิน|ทาน|รับประทาน|ใช้)\s*(?:พาราเซตามอล|ไอบูโพรเฟน|ibuprofen|paracetamol)/iu,
+  ];
+  return isUnsafeClinicalOutput(text) ||
+    medicationRecommendationPatterns.some((pattern) => pattern.test(text));
+}

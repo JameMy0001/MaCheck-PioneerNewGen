@@ -2,7 +2,18 @@ import { adminClient, corsHeaders, json, parseBody } from "../_shared/auth.ts";
 import {
   clampAgentTemperature,
   isUnsafeClinicalOutput,
+  isUnsafeSymptomIntakeOutput,
 } from "../_shared/agent-safety.ts";
+import {
+  type ClinicalChatTurn,
+  evaluateClinicalIntake,
+  sanitizeClinicalHistory,
+} from "../_shared/clinical-intake.ts";
+
+type ModelMessage = {
+  role: "system" | "user" | "assistant";
+  content: string;
+};
 
 type Status =
   | "ok"
@@ -52,7 +63,7 @@ const defaultRuntimeConfig: RuntimeConfig = {
   max_tokens: 500,
   request_timeout_ms: 15_000,
   ai_enabled: true,
-  prompt_version: "agent-safe-v1.1.0",
+  prompt_version: "agent-safe-v1.2.0",
 };
 
 const normalize = (value: unknown) =>
@@ -80,7 +91,7 @@ async function sha256(value: string) {
 }
 
 async function callNvidia(
-  messages: { role: "system" | "user"; content: string }[],
+  messages: ModelMessage[],
   model: string,
   temperature: number,
   maxTokens: number,
@@ -127,7 +138,7 @@ async function callNvidia(
 }
 
 async function callConfiguredNvidia(
-  messages: { role: "system" | "user"; content: string }[],
+  messages: ModelMessage[],
   config: RuntimeConfig,
   apiKey: string | null,
 ) {
@@ -296,6 +307,12 @@ Deno.serve(async (req) => {
     const chatMessage = intent === "chat"
       ? String(body.message ?? "").trim().slice(0, 1000)
       : "";
+    const chatHistory = intent === "chat"
+      ? sanitizeClinicalHistory(body.history)
+      : [];
+    const requestedConversationMode = intent === "chat"
+      ? String(body.conversation_mode ?? "general")
+      : "general";
     if (intent === "chat" && !chatMessage) {
       return json({ success: false, message: "กรุณาระบุคำถาม" }, 400);
     }
@@ -753,35 +770,101 @@ Deno.serve(async (req) => {
 
     if (intent === "chat") {
       const message = chatMessage;
-      let reply = deterministicChatReply(message, rows);
+      const intakeDecision = evaluateClinicalIntake(
+        message,
+        chatHistory,
+        requestedConversationMode,
+      );
+      let reply = intakeDecision.reply ??
+        (intakeDecision.kind === "none"
+          ? deterministicChatReply(message, rows)
+          : null);
       let executionMode: "live" | "rules_only" = "rules_only";
       let executionModel: string | undefined;
+      let responseType = intakeDecision.kind === "clarify"
+        ? "clarifying_questions"
+        : intakeDecision.kind === "emergency"
+        ? "emergency_escalation"
+        : intakeDecision.kind === "urgent"
+        ? "urgent_escalation"
+        : "information";
+      let requiresFollowUp = intakeDecision.requiresFollowUp;
+
+      await admin.from("agent_tool_calls").insert({
+        run_id: run.id,
+        sequence_number: 2,
+        tool_name: "clinical_intake_gate",
+        args_hash: await sha256(
+          JSON.stringify({
+            history_turns: chatHistory.length,
+            mode: requestedConversationMode,
+          }),
+        ),
+        input_args: {
+          history_turns: chatHistory.length,
+          requested_mode: requestedConversationMode,
+        },
+        output_result: {
+          decision: intakeDecision.kind,
+          conversation_mode: intakeDecision.conversationMode,
+        },
+      });
+
       if (!reply) {
         const compactContext = rows.map((row) =>
           `${row.category}: ${row.finding}`
         ).join("\n");
+        const modelHistory: ClinicalChatTurn[] = chatHistory.slice(-8);
+        const systemPrompt = intakeDecision.conversationMode ===
+            "symptom_intake"
+          ? [
+            "คุณคือ AI Care Agent สำหรับซักประวัติอาการและจัดระเบียบข้อมูลยา ไม่ใช่แพทย์และไม่วินิจฉัยโรค",
+            "ใช้ประวัติสนทนาทั้งหมดและผลคัดกรองที่ให้มา อย่าถามซ้ำในสิ่งที่ผู้ใช้ตอบชัดเจนแล้ว",
+            "ก่อนกล่าวถึงทางเลือกเรื่องยา ต้องมีข้อมูลอย่างน้อย: ตำแหน่งและข้างที่เป็น, เวลาเริ่มและระยะเวลา, ลักษณะ/ความรุนแรง 0-10, เหตุบาดเจ็บหรือกิจกรรมก่อนเกิด, อาการร่วมและสัญญาณอันตราย, สิ่งที่ลองทำแล้ว",
+            "หากข้อมูลยังไม่พอ ให้ขึ้นต้นว่า 'ขอถามเพิ่มก่อนประเมินเรื่องยา:' แล้วถามเฉพาะ 1-4 ข้อที่สำคัญที่สุด ห้ามเอ่ยชื่อยาเพื่อแนะนำให้เริ่มใช้",
+            "หากข้อมูลพอ ให้ขึ้นต้นว่า 'สรุปการคัดกรอง:' สรุปเฉพาะข้อมูลที่ผู้ใช้บอก ระดับความเร่งด่วน และขั้นตอนถัดไปที่ปลอดภัย โดยอาจแนะนำการดูแลตนเองที่ไม่ใช้ยาและการติดต่อแพทย์หรือเภสัชกร",
+            "ห้ามกำหนดขนาดยา ห้ามสั่งเริ่ม เพิ่ม ลด หยุด หรือเปลี่ยนยา ห้ามรับรองการวินิจฉัยหรือความปลอดภัย และอย่าเดาข้อมูลที่ผู้ใช้ยังไม่ตอบ",
+            "ตอบภาษาไทย กระชับ และให้ผู้ใช้ยืนยันว่าข้อมูลสรุปถูกต้องก่อนจบการคัดกรอง",
+          ].join("\n")
+          : "คุณคือผู้ช่วยจัดระเบียบข้อมูลยา ตอบเฉพาะจากผลคัดกรองที่ให้มา ห้ามกำหนดขนาดยา ห้ามสั่งเริ่ม เพิ่ม ลด หยุด หรือเปลี่ยนยา หากข้อมูลไม่พอให้บอกว่าไม่พอและแนะนำให้สอบถามแพทย์หรือเภสัชกร ตอบภาษาไทยสั้นและไม่รับรองว่าปลอดภัยเด็ดขาด";
         const completion = await callConfiguredNvidia(
           [
             {
               role: "system",
-              content:
-                "คุณคือผู้ช่วยจัดระเบียบข้อมูลยา ตอบเฉพาะจากผลคัดกรองที่ให้มา ห้ามกำหนดขนาดยา ห้ามสั่งเริ่ม เพิ่ม ลด หยุด หรือเปลี่ยนยา หากข้อมูลไม่พอให้บอกว่าไม่พอและแนะนำให้สอบถามแพทย์หรือเภสัชกร ตอบภาษาไทยสั้นและไม่รับรองว่าปลอดภัยเด็ดขาด",
+              content: systemPrompt,
             },
             {
-              role: "user",
-              content: `ผลคัดกรอง:\n${compactContext}\n\nคำถาม: ${message}`,
+              role: "system",
+              content: `ผลคัดกรองจากข้อมูลล่าสุดของผู้ใช้:\n${compactContext}`,
             },
+            ...modelHistory,
+            { role: "user", content: message },
           ],
           runtimeConfig,
           providerApiKey,
         );
-        reply = completion?.text ?? null;
-        executionModel = completion?.model;
-        if (completion) executionMode = "live";
+        const safeCompletion = completion &&
+            intakeDecision.conversationMode === "symptom_intake" &&
+            isUnsafeSymptomIntakeOutput(completion.text)
+          ? null
+          : completion;
+        reply = safeCompletion?.text ?? null;
+        executionModel = safeCompletion?.model;
+        if (safeCompletion) {
+          executionMode = "live";
+          requiresFollowUp = /^ขอถามเพิ่มก่อนประเมินเรื่องยา:/u.test(
+            safeCompletion.text,
+          );
+          responseType = requiresFollowUp
+            ? "clarifying_questions"
+            : "clinical_screening_summary";
+        }
       }
       if (!reply) {
-        reply =
-          "ระบบไม่มีข้อมูลเพียงพอสำหรับตอบคำถามนี้อย่างปลอดภัย โปรดตรวจฉลากยาและสอบถามแพทย์หรือเภสัชกร โดยอย่าปรับยาเอง";
+        reply = intakeDecision.conversationMode === "symptom_intake"
+          ? "ขอบคุณสำหรับข้อมูลเพิ่มเติม ขณะนี้ระบบอยู่ในโหมดกฎความปลอดภัยและยังไม่สามารถประเมินอาการหรือเลือกยาให้ได้อย่างน่าเชื่อถือ กรุณานำข้อมูลอาการนี้พร้อมรายการยา โรคประจำตัว และประวัติแพ้ยาไปสอบถามแพทย์หรือเภสัชกร โดยอย่าเริ่มหรือปรับยาเอง"
+          : "ระบบไม่มีข้อมูลเพียงพอสำหรับตอบคำถามนี้อย่างปลอดภัย โปรดตรวจฉลากยาและสอบถามแพทย์หรือเภสัชกร โดยอย่าปรับยาเอง";
+        requiresFollowUp = false;
       }
       await admin.from("agent_runs").update({
         status: "completed",
@@ -793,6 +876,9 @@ Deno.serve(async (req) => {
         reply,
         execution_mode: executionMode,
         model_name: executionModel,
+        response_type: responseType,
+        conversation_mode: intakeDecision.conversationMode,
+        requires_follow_up: requiresFollowUp,
         quota_remaining: quota.current_tier === "admin"
           ? 9999
           : Math.max(0, Number(quota.quota_remaining) - 1),
