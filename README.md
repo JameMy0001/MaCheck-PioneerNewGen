@@ -11,7 +11,7 @@
 
 | หน้าจอ Mobile App (React Native) | หน้าจอ Looker Dashboard (Prototype) | 
 |:---:|:---:|
-| ![Mobile App Placeholder](https://placehold.co/300x600?text=Mobile+App+UI) | ![MaCheck Caregiver Dashboard](docs/assets/looker_dashboard.png) |
+| ![MaCheck Mobile App](docs/assets/mobile_app.png) | ![MaCheck Caregiver Dashboard](docs/assets/looker_dashboard.png) |
 | *ตัวอย่างการแจ้งเตือนความเสี่ยงและคำแนะนำจาก Gemini Enterprise* | *ตัวอย่าง Caregiver Priority Queue (จัดอันดับผู้ป่วยที่ต้องติดตามก่อน)* |
 
 *(สามารถอัปเดตลิงก์รูปภาพของจริงทับ placeholder ด้านบนได้เลย)*
