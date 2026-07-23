@@ -22,12 +22,13 @@ import {
 import { getAdherence, useAppStore } from '@/store/use-app-store';
 import type { MealTiming, ScheduleSlot } from '@/types/models';
 import { getTodayKey } from '@/utils/safety';
+import { getMealTimingLabel, getSlotLabel } from '@/utils/i18n';
 
 const emptyTaken: Record<string, boolean> = {};
 const scheduleOrder: ScheduleSlot[] = ['morning', 'noon', 'evening', 'bedtime'];
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat('th-TH', {
+function formatDateTime(value: string, lang: 'th' | 'en' = 'th') {
+  return new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'th-TH', {
     day: 'numeric',
     month: 'short',
     year: '2-digit',
@@ -36,16 +37,14 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function formatDate(value: string) {
+function formatDate(value: string, lang: 'th' | 'en' = 'th') {
   const [year = 1970, month = 1, day = 1] = value.split('-').map(Number);
-  return new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
     .format(new Date(year, month - 1, day));
 }
 
-function mealTimingLabel(value: MealTiming) {
-  if (value === 'before') return 'ก่อนอาหาร';
-  if (value === 'after') return 'หลังอาหาร';
-  return 'ไม่จำกัดมื้อ';
+function mealTimingLabel(value: MealTiming, lang: 'th' | 'en' = 'th') {
+  return getMealTimingLabel(value, lang);
 }
 
 function UsernameBadge({ username }: { username: string }) {
@@ -58,6 +57,7 @@ function UsernameBadge({ username }: { username: string }) {
 
 export default function CaregiverScreen() {
   const profile = useAppStore((state) => state.profile);
+  const lang = profile?.language || 'th';
   const cabinet = useAppStore((state) => state.cabinet);
   const taken = useAppStore((state) => state.takenByDate[getTodayKey()]) ?? emptyTaken;
   const multiplier = useFontMultiplier();
@@ -98,11 +98,11 @@ export default function CaregiverScreen() {
         ? current
         : patients[0]?.otherUserId ?? null);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'โหลดข้อมูลผู้ดูแลไม่สำเร็จ');
+      setError(caught instanceof Error ? caught.message : (lang === 'en' ? 'Failed to load caregiver data' : 'โหลดข้อมูลผู้ดูแลไม่สำเร็จ'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [lang]);
 
   useEffect(() => {
     const timer = setTimeout(() => void refresh(), 0);
@@ -120,7 +120,7 @@ export default function CaregiverScreen() {
           if (!cancelled) setRemoteSnapshot(snapshot);
         })
         .catch((caught) => {
-          if (!cancelled) setError(caught instanceof Error ? caught.message : 'โหลดข้อมูลผู้ป่วยไม่สำเร็จ');
+          if (!cancelled) setError(caught instanceof Error ? caught.message : (lang === 'en' ? 'Failed to load patient data' : 'โหลดข้อมูลผู้ป่วยไม่สำเร็จ'));
         })
         .finally(() => {
           if (!cancelled) setRemoteLoading(false);
@@ -130,7 +130,7 @@ export default function CaregiverScreen() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [range, selectedPatientId]);
+  }, [range, selectedPatientId, lang]);
 
   const runAction = async (action: () => Promise<void>, successMessage: string) => {
     setActionBusy(true);
@@ -141,7 +141,7 @@ export default function CaregiverScreen() {
       setNotice(successMessage);
       await refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'ดำเนินการไม่สำเร็จ');
+      setError(caught instanceof Error ? caught.message : (lang === 'en' ? 'Action failed' : 'ดำเนินการไม่สำเร็จ'));
     } finally {
       setActionBusy(false);
     }
@@ -150,28 +150,32 @@ export default function CaregiverScreen() {
   const submitInvitation = () => {
     const normalized = username.trim().toLowerCase();
     if (!normalized) {
-      setError('กรุณากรอก Username ของผู้ดูแล');
+      setError(lang === 'en' ? 'Please enter caregiver username' : 'กรุณากรอก Username ของผู้ดูแล');
       return;
     }
     void runAction(async () => {
       await inviteCaregiver(normalized);
       setUsername('');
-    }, `ส่งคำเชิญให้ @${normalized} แล้ว`);
+    }, lang === 'en' ? `Invitation sent to @${normalized}` : `ส่งคำเชิญให้ @${normalized} แล้ว`);
   };
 
   const confirmRevoke = (relationship: CaregiverRelationship) => {
     const isCaregiver = relationship.kind === 'active_caregiver';
     Alert.alert(
-      isCaregiver ? 'ยกเลิกสิทธิ์ผู้ดูแล?' : 'หยุดดูแลบัญชีนี้?',
-      `@${relationship.username} จะไม่สามารถดูข้อมูลสุขภาพข้ามบัญชีได้อีก`,
+      isCaregiver
+        ? (lang === 'en' ? 'Revoke Caregiver Access?' : 'ยกเลิกสิทธิ์ผู้ดูแล?')
+        : (lang === 'en' ? 'Stop Managing Account?' : 'หยุดดูแลบัญชีนี้?'),
+      lang === 'en'
+        ? `@${relationship.username} will no longer be able to view cross-account health data.`
+        : `@${relationship.username} จะไม่สามารถดูข้อมูลสุขภาพข้ามบัญชีได้อีก`,
       [
-        { text: 'ยกเลิก', style: 'cancel' },
+        { text: lang === 'en' ? 'Cancel' : 'ยกเลิก', style: 'cancel' },
         {
-          text: 'ยืนยัน',
+          text: lang === 'en' ? 'Confirm' : 'ยืนยัน',
           style: 'destructive',
           onPress: () => void runAction(
             () => revokeCaregiverAccess(relationship.id),
-            'ยกเลิกการเชื่อมต่อแล้ว',
+            lang === 'en' ? 'Connection revoked' : 'ยกเลิกการเชื่อมต่อแล้ว',
           ),
         },
       ],
@@ -205,54 +209,81 @@ export default function CaregiverScreen() {
       ) : null}
 
       {nudges.filter((item) => !item.readAt).map((nudge) => (
-        <SectionCard key={nudge.id} title="ข้อความจากผู้ดูแล">
+        <SectionCard key={nudge.id} title={lang === 'en' ? 'Caregiver Message' : 'ข้อความจากผู้ดูแล'}>
           <Text selectable style={{ color: colors.text, fontSize: 16 * multiplier, lineHeight: 23 * multiplier }}>{nudge.text}</Text>
-          <Text selectable style={{ color: colors.muted, fontSize: 13 * multiplier }}>{formatDateTime(nudge.createdAt)}</Text>
+          <Text selectable style={{ color: colors.muted, fontSize: 13 * multiplier }}>{formatDateTime(nudge.createdAt, lang)}</Text>
           <PrimaryButton
-            label="รับทราบ"
+            label={lang === 'en' ? 'Acknowledge' : 'รับทราบ'}
             tone="neutral"
             disabled={actionBusy}
-            onPress={() => void runAction(() => markCaregiverNudgeRead(nudge.id), 'ทำเครื่องหมายว่าอ่านแล้ว')}
+            onPress={() => void runAction(() => markCaregiverNudgeRead(nudge.id), lang === 'en' ? 'Marked as read' : 'ทำเครื่องหมายว่าอ่านแล้ว')}
           />
         </SectionCard>
       ))}
 
-      <SectionCard title="สรุปของฉันวันนี้">
+      <SectionCard title={lang === 'en' ? 'My Summary Today' : 'สรุปของฉันวันนี้'}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <View style={{ flex: 1, backgroundColor: colors.primarySoft, padding: 14, borderRadius: 14, gap: 4 }}>
-            <Text selectable style={{ color: colors.muted }}>ความสม่ำเสมอ</Text>
+            <Text selectable style={{ color: colors.muted }}>{lang === 'en' ? 'Adherence' : 'ความสม่ำเสมอ'}</Text>
             <Text selectable style={{ color: colors.primaryDark, fontSize: 30 * multiplier, fontWeight: '900', fontVariant: ['tabular-nums'] }}>{adherence}%</Text>
           </View>
           <View style={{ flex: 1, backgroundColor: colors.primarySoft, padding: 14, borderRadius: 14, gap: 4 }}>
-            <Text selectable style={{ color: colors.muted }}>ยาที่ใช้อยู่</Text>
+            <Text selectable style={{ color: colors.muted }}>{lang === 'en' ? 'Active Meds' : 'ยาที่ใช้อยู่'}</Text>
             <Text selectable style={{ color: colors.primaryDark, fontSize: 30 * multiplier, fontWeight: '900', fontVariant: ['tabular-nums'] }}>{cabinet.filter((item) => item.status === 'active').length}</Text>
           </View>
         </View>
       </SectionCard>
 
-      <SectionCard title="เชิญผู้ดูแลระยะไกล">
-        <Text selectable style={{ color: colors.muted, lineHeight: 22 * multiplier }}>เพื่อนหรือสมาชิกครอบครัวต้องสมัคร MaCheck ด้วย Username ก่อน จากนั้นส่งคำเชิญและรอให้อีกฝ่ายกดยอมรับ</Text>
+      <SectionCard title={lang === 'en' ? 'Invite Remote Caregiver' : 'เชิญผู้ดูแลระยะไกล'}>
+        <Text selectable style={{ color: colors.muted, lineHeight: 22 * multiplier }}>
+          {lang === 'en'
+            ? 'Friends or family members must sign up for MaCheck with a Username first, then send an invitation and wait for acceptance.'
+            : 'เพื่อนหรือสมาชิกครอบครัวต้องสมัคร MaCheck ด้วย Username ก่อน จากนั้นส่งคำเชิญและรอใหีกฝ่ายกดยอมรับ'}
+        </Text>
         <Field
-          label="Username ของผู้ดูแล"
+          label={lang === 'en' ? 'Caregiver Username' : 'Username ของผู้ดูแล'}
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
           autoCorrect={false}
-          placeholder="เช่น family_01"
+          placeholder={lang === 'en' ? 'e.g. family_01' : 'เช่น family_01'}
         />
-        <PrimaryButton label={actionBusy ? 'กำลังดำเนินการ…' : 'ส่งคำเชิญ'} onPress={submitInvitation} disabled={actionBusy || loading} />
-        <Text selectable style={{ color: colors.warning, fontSize: 13 * multiplier, lineHeight: 19 * multiplier, fontWeight: '700' }}>ข้อมูลยา โรค แพ้ยา และประวัติการทานยาเป็นข้อมูลสุขภาพที่อ่อนไหว ควรเชิญเฉพาะบุคคลที่ไว้วางใจ คำเชิญหมดอายุใน 7 วัน</Text>
+        <PrimaryButton
+          label={actionBusy ? (lang === 'en' ? 'Processing…' : 'กำลังดำเนินการ…') : (lang === 'en' ? 'Send Invitation' : 'ส่งคำเชิญ')}
+          onPress={submitInvitation}
+          disabled={actionBusy || loading}
+        />
+        <Text selectable style={{ color: colors.warning, fontSize: 13 * multiplier, lineHeight: 19 * multiplier, fontWeight: '700' }}>
+          {lang === 'en'
+            ? 'Medication, disease, allergy, and adherence history are sensitive health data. Invite only trusted individuals. Invitations expire in 7 days.'
+            : 'ข้อมูลยา โรค แพ้ยา และประวัติการทานยาเป็นข้อมูลสุขภาพที่อ่อนไหว ควรเชิญเฉพาะบุคคลที่ไว้วางใจ คำเชิญหมดอายุใน 7 วัน'}
+        </Text>
       </SectionCard>
 
       {incomingInvitations.length ? (
-        <SectionCard title={`คำเชิญให้เป็นผู้ดูแล (${incomingInvitations.length})`}>
+        <SectionCard title={lang === 'en' ? `Caregiver Invitations (${incomingInvitations.length})` : `คำเชิญให้เป็นผู้ดูแล (${incomingInvitations.length})`}>
           {incomingInvitations.map((invitation) => (
             <View key={invitation.id} style={{ gap: 10, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 13 }}>
               <UsernameBadge username={invitation.username} />
-              <Text selectable style={{ color: colors.muted, lineHeight: 21 }}>บัญชีนี้ขออนุญาตให้คุณดูตู้ยาและประวัติที่ผู้ใช้บันทึกไว้</Text>
+              <Text selectable style={{ color: colors.muted, lineHeight: 21 }}>
+                {lang === 'en' ? 'This account requests permission for you to view their cabinet and adherence history.' : 'บัญชีนี้ขออนุญาตให้คุณดูตู้ยาและประวัติที่ผู้ใช้บันทึกไว้'}
+              </Text>
               <View style={{ flexDirection: 'row', gap: 9 }}>
-                <View style={{ flex: 1 }}><PrimaryButton label="ปฏิเสธ" tone="neutral" disabled={actionBusy} onPress={() => void runAction(() => respondToCaregiverInvitation(invitation.id, false), 'ปฏิเสธคำเชิญแล้ว')} /></View>
-                <View style={{ flex: 1 }}><PrimaryButton label="ยอมรับ" disabled={actionBusy} onPress={() => void runAction(() => respondToCaregiverInvitation(invitation.id, true), 'เชื่อมต่อผู้ดูแลสำเร็จ')} /></View>
+                <View style={{ flex: 1 }}>
+                  <PrimaryButton
+                    label={lang === 'en' ? 'Decline' : 'ปฏิเสธ'}
+                    tone="neutral"
+                    disabled={actionBusy}
+                    onPress={() => void runAction(() => respondToCaregiverInvitation(invitation.id, false), lang === 'en' ? 'Invitation declined' : 'ปฏิเสธคำเชิญแล้ว')}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <PrimaryButton
+                    label={lang === 'en' ? 'Accept' : 'ยอมรับ'}
+                    disabled={actionBusy}
+                    onPress={() => void runAction(() => respondToCaregiverInvitation(invitation.id, true), lang === 'en' ? 'Caregiver connected' : 'เชื่อมต่อผู้ดูแลสำเร็จ')}
+                  />
+                </View>
               </View>
             </View>
           ))}
@@ -260,15 +291,17 @@ export default function CaregiverScreen() {
       ) : null}
 
       {outgoingInvitations.length ? (
-        <SectionCard title="คำเชิญที่กำลังรอ">
+        <SectionCard title={lang === 'en' ? 'Pending Invitations' : 'คำเชิญที่กำลังรอ'}>
           {outgoingInvitations.map((invitation) => (
             <View key={invitation.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ flex: 1, gap: 5 }}>
                 <UsernameBadge username={invitation.username} />
-                <Text selectable style={{ color: colors.muted, fontSize: 13 * multiplier }}>รอการยอมรับ · หมดอายุ {invitation.expiresAt ? formatDateTime(invitation.expiresAt) : '-'}</Text>
+                <Text selectable style={{ color: colors.muted, fontSize: 13 * multiplier }}>
+                  {lang === 'en' ? 'Pending acceptance · Expires' : 'รอการยอมรับ · หมดอายุ'} {invitation.expiresAt ? formatDateTime(invitation.expiresAt, lang) : '-'}
+                </Text>
               </View>
-              <Pressable disabled={actionBusy} onPress={() => void runAction(() => cancelCaregiverInvitation(invitation.id), 'ยกเลิกคำเชิญแล้ว')}>
-                <Text style={{ color: colors.danger, fontWeight: '800', padding: 8 }}>ยกเลิก</Text>
+              <Pressable disabled={actionBusy} onPress={() => void runAction(() => cancelCaregiverInvitation(invitation.id), lang === 'en' ? 'Invitation cancelled' : 'ยกเลิกคำเชิญแล้ว')}>
+                <Text style={{ color: colors.danger, fontWeight: '800', padding: 8 }}>{lang === 'en' ? 'Cancel' : 'ยกเลิก'}</Text>
               </Pressable>
             </View>
           ))}
@@ -276,15 +309,15 @@ export default function CaregiverScreen() {
       ) : null}
 
       {activeCaregivers.length ? (
-        <SectionCard title="ผู้ดูแลที่ได้รับสิทธิ์">
+        <SectionCard title={lang === 'en' ? 'Authorized Caregivers' : 'ผู้ดูแลที่ได้รับสิทธิ์'}>
           {activeCaregivers.map((caregiver) => (
             <View key={caregiver.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ flex: 1, gap: 5 }}>
                 <UsernameBadge username={caregiver.username} />
-                <Text selectable style={{ color: colors.success, fontSize: 13 * multiplier, fontWeight: '700' }}>เชื่อมต่อแล้ว</Text>
+                <Text selectable style={{ color: colors.success, fontSize: 13 * multiplier, fontWeight: '700' }}>{lang === 'en' ? 'Connected' : 'เชื่อมต่อแล้ว'}</Text>
               </View>
               <Pressable disabled={actionBusy} onPress={() => confirmRevoke(caregiver)}>
-                <Text style={{ color: colors.danger, fontWeight: '800', padding: 8 }}>ยกเลิกสิทธิ์</Text>
+                <Text style={{ color: colors.danger, fontWeight: '800', padding: 8 }}>{lang === 'en' ? 'Revoke' : 'ยกเลิกสิทธิ์'}</Text>
               </Pressable>
             </View>
           ))}
@@ -292,7 +325,7 @@ export default function CaregiverScreen() {
       ) : null}
 
       {activePatients.length ? (
-        <SectionCard title="บัญชีที่ฉันดูแล">
+        <SectionCard title={lang === 'en' ? 'Accounts I Manage' : 'บัญชีที่ฉันดูแล'}>
           {activePatients.map((patient) => {
             const selected = patient.otherUserId === selectedPatientId;
             return (
@@ -303,10 +336,12 @@ export default function CaregiverScreen() {
               >
                 <View style={{ flex: 1, gap: 5 }}>
                   <UsernameBadge username={patient.username} />
-                  <Text selectable style={{ color: colors.muted, fontSize: 13 * multiplier }}>{selected ? 'กำลังแสดงข้อมูลด้านล่าง' : 'แตะเพื่อดูข้อมูล'}</Text>
+                  <Text selectable style={{ color: colors.muted, fontSize: 13 * multiplier }}>
+                    {selected ? (lang === 'en' ? 'Showing details below' : 'กำลังแสดงข้อมูลด้านล่าง') : (lang === 'en' ? 'Tap to view details' : 'แตะเพื่อดูข้อมูล')}
+                  </Text>
                 </View>
                 <Pressable disabled={actionBusy} onPress={() => confirmRevoke(patient)} hitSlop={8}>
-                  <Text style={{ color: colors.danger, fontWeight: '800', padding: 6 }}>หยุดดูแล</Text>
+                  <Text style={{ color: colors.danger, fontWeight: '800', padding: 6 }}>{lang === 'en' ? 'Stop Managing' : 'หยุดดูแล'}</Text>
                 </Pressable>
               </Pressable>
             );
@@ -315,99 +350,120 @@ export default function CaregiverScreen() {
       ) : null}
 
       {selectedPatient ? (
-        <SectionCard title={`ข้อมูลของ @${selectedPatient.username}`}>
+        <SectionCard title={lang === 'en' ? `Details for @${selectedPatient.username}` : `ข้อมูลของ @${selectedPatient.username}`}>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {([7, 30] as const).map((value) => (
               <View key={value} style={{ flex: 1 }}>
-                <PrimaryButton label={value === 7 ? 'ย้อนหลัง 7 วัน' : 'ย้อนหลัง 1 เดือน'} tone={range === value ? 'primary' : 'neutral'} onPress={() => setRange(value)} />
+                <PrimaryButton
+                  label={value === 7 ? (lang === 'en' ? 'Past 7 Days' : 'ย้อนหลัง 7 วัน') : (lang === 'en' ? 'Past 30 Days' : 'ย้อนหลัง 1 เดือน')}
+                  tone={range === value ? 'primary' : 'neutral'}
+                  onPress={() => setRange(value)}
+                />
               </View>
             ))}
           </View>
           {remoteLoading || !remoteSnapshot ? (
-            <Text selectable style={{ color: colors.muted, textAlign: 'center', paddingVertical: 16 }}>กำลังโหลดข้อมูลที่ได้รับอนุญาต…</Text>
+            <Text selectable style={{ color: colors.muted, textAlign: 'center', paddingVertical: 16 }}>
+              {lang === 'en' ? 'Loading authorized data…' : 'กำลังโหลดข้อมูลที่ได้รับอนุญาต…'}
+            </Text>
           ) : (
             <View style={{ gap: 14 }}>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={{ flex: 1, backgroundColor: colors.primarySoft, borderRadius: 14, padding: 13, gap: 3 }}>
                   <Text selectable style={{ color: colors.primaryDark, fontSize: 25 * multiplier, fontWeight: '900' }}>{remoteSnapshot.medicines.filter((item) => item.status === 'active').length}</Text>
-                  <Text selectable style={{ color: colors.primaryDark, fontSize: 12 * multiplier, fontWeight: '700' }}>รายการยาที่ใช้อยู่</Text>
+                  <Text selectable style={{ color: colors.primaryDark, fontSize: 12 * multiplier, fontWeight: '700' }}>{lang === 'en' ? 'Active Meds' : 'รายการยาที่ใช้อยู่'}</Text>
                 </View>
                 <View style={{ flex: 1, backgroundColor: colors.successSoft, borderRadius: 14, padding: 13, gap: 3 }}>
                   <Text selectable style={{ color: colors.success, fontSize: 25 * multiplier, fontWeight: '900' }}>{takenEvents.length}</Text>
-                  <Text selectable style={{ color: colors.success, fontSize: 12 * multiplier, fontWeight: '700' }}>ครั้งที่บันทึกว่าทานแล้ว</Text>
+                  <Text selectable style={{ color: colors.success, fontSize: 12 * multiplier, fontWeight: '700' }}>{lang === 'en' ? 'Recorded Doses' : 'ครั้งที่บันทึกว่าทานแล้ว'}</Text>
                 </View>
                 <View style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 14, padding: 13, gap: 3, borderWidth: 1, borderColor: colors.border }}>
                   <Text selectable style={{ color: colors.text, fontSize: 25 * multiplier, fontWeight: '900' }}>{historyDays}</Text>
-                  <Text selectable style={{ color: colors.muted, fontSize: 12 * multiplier, fontWeight: '700' }}>วันที่มีบันทึก</Text>
+                  <Text selectable style={{ color: colors.muted, fontSize: 12 * multiplier, fontWeight: '700' }}>{lang === 'en' ? 'Recorded Days' : 'วันที่มีบันทึก'}</Text>
                 </View>
               </View>
 
               <View style={{ gap: 6 }}>
-                <Text selectable style={{ color: colors.text, fontSize: 16 * multiplier, fontWeight: '900' }}>ข้อมูลที่ผู้ใช้แจ้งไว้</Text>
-                <Text selectable style={{ color: colors.muted, lineHeight: 21 * multiplier }}>โรคประจำตัว: {remoteSnapshot.diseases.length ? remoteSnapshot.diseases.join(', ') : 'ไม่ได้ระบุ'}</Text>
-                <Text selectable style={{ color: colors.muted, lineHeight: 21 * multiplier }}>ประวัติแพ้ยา: {remoteSnapshot.allergies.length ? remoteSnapshot.allergies.join(', ') : 'ไม่ได้ระบุ'}</Text>
+                <Text selectable style={{ color: colors.text, fontSize: 16 * multiplier, fontWeight: '900' }}>{lang === 'en' ? 'User Profile Info' : 'ข้อมูลที่ผู้ใช้แจ้งไว้'}</Text>
+                <Text selectable style={{ color: colors.muted, lineHeight: 21 * multiplier }}>
+                  {lang === 'en' ? 'Medical Conditions: ' : 'โรคประจำตัว: '}{remoteSnapshot.diseases.length ? remoteSnapshot.diseases.join(', ') : (lang === 'en' ? 'Not specified' : 'ไม่ได้ระบุ')}
+                </Text>
+                <Text selectable style={{ color: colors.muted, lineHeight: 21 * multiplier }}>
+                  {lang === 'en' ? 'Allergies: ' : 'ประวัติแพ้ยา: '}{remoteSnapshot.allergies.length ? remoteSnapshot.allergies.join(', ') : (lang === 'en' ? 'Not specified' : 'ไม่ได้ระบุ')}
+                </Text>
               </View>
 
               <View style={{ gap: 9 }}>
-                <Text selectable style={{ color: colors.text, fontSize: 16 * multiplier, fontWeight: '900' }}>ตู้ยา</Text>
+                <Text selectable style={{ color: colors.text, fontSize: 16 * multiplier, fontWeight: '900' }}>{lang === 'en' ? 'Cabinet' : 'ตู้ยา'}</Text>
                 {remoteSnapshot.medicines.filter((item) => item.status === 'active').map((medicine) => (
                   <View key={medicine.clientId} style={{ padding: 12, borderRadius: 13, borderWidth: 1, borderColor: colors.border, gap: 4 }}>
-                    <Text selectable style={{ color: colors.text, fontSize: 15 * multiplier, fontWeight: '900' }}>{medicine.nameTh}</Text>
-                    {medicine.nameEn ? <Text selectable style={{ color: colors.muted, fontSize: 12 * multiplier }}>{medicine.nameEn}</Text> : null}
-                    <Text selectable style={{ color: colors.primaryDark, fontSize: 13 * multiplier, fontWeight: '700' }}>{medicine.dosage} · {mealTimingLabel(medicine.mealTiming)}</Text>
+                    <Text selectable style={{ color: colors.text, fontSize: 15 * multiplier, fontWeight: '900' }}>
+                      {lang === 'en' ? (medicine.nameEn || medicine.nameTh) : medicine.nameTh}
+                    </Text>
+                    {medicine.nameEn && lang !== 'en' ? <Text selectable style={{ color: colors.muted, fontSize: 12 * multiplier }}>{medicine.nameEn}</Text> : null}
+                    <Text selectable style={{ color: colors.primaryDark, fontSize: 13 * multiplier, fontWeight: '700' }}>{medicine.dosage} · {mealTimingLabel(medicine.mealTiming, lang)}</Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                       {medicine.schedules.map((slot) => (
                         <View key={slot} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                          <FeatureIcon name={slots[slot].icon} size={22} accessibilityLabel={`ช่วง${slots[slot].label}`} />
-                          <Text selectable style={{ color: colors.muted, fontSize: 12 * multiplier }}>{slots[slot].label}</Text>
+                          <FeatureIcon name={slots[slot].icon} size={22} accessibilityLabel={getSlotLabel(slot, lang)} />
+                          <Text selectable style={{ color: colors.muted, fontSize: 12 * multiplier }}>{getSlotLabel(slot, lang)}</Text>
                         </View>
                       ))}
-                      {!medicine.schedules.length ? <Text selectable style={{ color: colors.muted, fontSize: 12 * multiplier }}>ไม่ได้ตั้งเวลา</Text> : null}
+                      {!medicine.schedules.length ? <Text selectable style={{ color: colors.muted, fontSize: 12 * multiplier }}>{lang === 'en' ? 'No schedule set' : 'ไม่ได้ตั้งเวลา'}</Text> : null}
                     </View>
                   </View>
                 ))}
-                {!remoteSnapshot.medicines.some((item) => item.status === 'active') ? <Text selectable style={{ color: colors.muted }}>ยังไม่มียาที่ใช้อยู่</Text> : null}
+                {!remoteSnapshot.medicines.some((item) => item.status === 'active') ? <Text selectable style={{ color: colors.muted }}>{lang === 'en' ? 'No active medications' : 'ยังไม่มียาที่ใช้อยู่'}</Text> : null}
               </View>
 
               <View style={{ gap: 9 }}>
-                <Text selectable style={{ color: colors.text, fontSize: 16 * multiplier, fontWeight: '900' }}>ประวัติที่บันทึกว่าทานแล้ว</Text>
+                <Text selectable style={{ color: colors.text, fontSize: 16 * multiplier, fontWeight: '900' }}>{lang === 'en' ? 'Dose History (Taken)' : 'ประวัติที่บันทึกว่าทานแล้ว'}</Text>
                 {takenEvents.slice(0, 30).map((event) => {
                   const medicine = medicineByClientId.get(event.medicineClientId);
+                  const drugName = lang === 'en' ? (medicine?.nameEn || medicine?.nameTh) : medicine?.nameTh;
                   return (
                     <View key={event.id} style={{ flexDirection: 'row', gap: 10, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 9 }}>
-                      <FeatureIcon name="success" size={25} accessibilityLabel="ทานแล้ว" />
+                      <FeatureIcon name="success" size={25} accessibilityLabel={lang === 'en' ? 'Taken' : 'ทานแล้ว'} />
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text selectable style={{ color: colors.text, fontWeight: '800' }}>{medicine?.nameTh || 'รายการยาที่นำออกจากตู้แล้ว'}</Text>
+                        <Text selectable style={{ color: colors.text, fontWeight: '800' }}>{drugName || (lang === 'en' ? 'Removed medication' : 'รายการยาที่นำออกจากตู้แล้ว')}</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                          <FeatureIcon name={slots[event.slot].icon} size={20} accessibilityLabel={`ช่วง${slots[event.slot].label}`} />
-                          <Text selectable style={{ flex: 1, color: colors.muted, fontSize: 12 * multiplier }}>{formatDate(event.eventDate)} · {slots[event.slot].label} · {medicine?.dosage || 'ไม่พบข้อมูลจำนวน'}</Text>
+                          <FeatureIcon name={slots[event.slot].icon} size={20} accessibilityLabel={getSlotLabel(event.slot, lang)} />
+                          <Text selectable style={{ flex: 1, color: colors.muted, fontSize: 12 * multiplier }}>
+                            {formatDate(event.eventDate, lang)} · {getSlotLabel(event.slot, lang)} · {medicine?.dosage || (lang === 'en' ? 'No dose data' : 'ไม่พบข้อมูลจำนวน')}
+                          </Text>
                         </View>
                       </View>
                     </View>
                   );
                 })}
-                {!takenEvents.length ? <Text selectable style={{ color: colors.muted }}>ไม่มีรายการที่ผู้ใช้กดบันทึกว่าทานแล้วในช่วงนี้</Text> : null}
-                {takenEvents.length > 30 ? <Text selectable style={{ color: colors.muted, textAlign: 'center' }}>แสดง 30 รายการล่าสุดจากทั้งหมด {takenEvents.length} รายการ</Text> : null}
+                {!takenEvents.length ? <Text selectable style={{ color: colors.muted }}>{lang === 'en' ? 'No taken dose records in this period' : 'ไม่มีรายการที่ผู้ใช้กดบันทึกว่าทานแล้วในช่วงนี้'}</Text> : null}
+                {takenEvents.length > 30 ? (
+                  <Text selectable style={{ color: colors.muted, textAlign: 'center' }}>
+                    {lang === 'en' ? `Showing latest 30 of ${takenEvents.length} records` : `แสดง 30 รายการล่าสุดจากทั้งหมด ${takenEvents.length} รายการ`}
+                  </Text>
+                ) : null}
               </View>
 
               <PrimaryButton
-                label={actionBusy ? 'กำลังส่ง…' : 'เตือนให้ตรวจสอบตารางยาวันนี้'}
+                label={actionBusy ? (lang === 'en' ? 'Sending…' : 'กำลังส่ง…') : (lang === 'en' ? 'Nudge to check today schedule' : 'เตือนให้ตรวจสอบตารางยาวันนี้')}
                 disabled={actionBusy}
-                onPress={() => void runAction(() => sendCaregiverNudge(selectedPatient.otherUserId, 'check_schedule'), 'ส่งข้อความเตือนแล้ว')}
+                onPress={() => void runAction(() => sendCaregiverNudge(selectedPatient.otherUserId, 'check_schedule'), lang === 'en' ? 'Nudge sent' : 'ส่งข้อความเตือนแล้ว')}
               />
               <PrimaryButton
-                label="ขอให้ติดต่อกลับ"
+                label={lang === 'en' ? 'Request callback' : 'ขอให้ติดต่อกลับ'}
                 tone="neutral"
                 disabled={actionBusy}
-                onPress={() => void runAction(() => sendCaregiverNudge(selectedPatient.otherUserId, 'contact_caregiver'), 'ส่งข้อความแล้ว')}
+                onPress={() => void runAction(() => sendCaregiverNudge(selectedPatient.otherUserId, 'contact_caregiver'), lang === 'en' ? 'Message sent' : 'ส่งข้อความแล้ว')}
               />
               <View style={{ gap: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 }}>
-                <Text selectable style={{ color: colors.text, fontSize: 17 * multiplier, fontWeight: '900' }}>เขียนข้อความถึง @{selectedPatient.username}</Text>
+                <Text selectable style={{ color: colors.text, fontSize: 17 * multiplier, fontWeight: '900' }}>
+                  {lang === 'en' ? `Write message to @${selectedPatient.username}` : `เขียนข้อความถึง @${selectedPatient.username}`}
+                </Text>
                 <Field
-                  label="ข้อความทั่วไป"
+                  label={lang === 'en' ? 'General Message' : 'ข้อความทั่วไป'}
                   value={messageText}
                   onChangeText={setMessageText}
-                  placeholder="เช่น วันนี้เป็นอย่างไรบ้าง ถ้าสะดวกโทรกลับหาหน่อยนะ"
+                  placeholder={lang === 'en' ? 'e.g. How are you doing today? Call me back when free.' : 'เช่น วันนี้เป็นอย่างไรบ้าง ถ้าสะดวกโทรกลับหาหน่อยนะ'}
                   multiline
                   maxLength={300}
                   textAlignVertical="top"
@@ -415,16 +471,24 @@ export default function CaregiverScreen() {
                 />
                 <Text selectable style={{ color: colors.muted, textAlign: 'right', fontSize: 12 * multiplier }}>{messageText.length}/300</Text>
                 <PrimaryButton
-                  label={actionBusy ? 'กำลังส่ง…' : 'ส่งข้อความและแจ้งเตือน'}
+                  label={actionBusy ? (lang === 'en' ? 'Sending…' : 'กำลังส่ง…') : (lang === 'en' ? 'Send Message & Notify' : 'ส่งข้อความและแจ้งเตือน')}
                   disabled={actionBusy || !messageText.trim()}
                   onPress={() => void runAction(async () => {
                     await sendCaregiverMessage(selectedPatient.otherUserId, messageText);
                     setMessageText('');
-                  }, 'ส่งข้อความและแจ้งเตือนแล้ว')}
+                  }, lang === 'en' ? 'Message and notification sent' : 'ส่งข้อความและแจ้งเตือนแล้ว')}
                 />
-                <Text selectable style={{ color: colors.warning, fontSize: 13 * multiplier, lineHeight: 19 * multiplier, fontWeight: '700' }}>พิมพ์ข้อความทั่วไปได้ แต่ระบบจะไม่ส่งข้อความที่มีลักษณะสั่งเพิ่ม หยุด เปลี่ยน หรือระบุขนาดยาโดยตรง</Text>
+                <Text selectable style={{ color: colors.warning, fontSize: 13 * multiplier, lineHeight: 19 * multiplier, fontWeight: '700' }}>
+                  {lang === 'en'
+                    ? 'General messages permitted. System blocks direct dosage changes, additions, or stops.'
+                    : 'พิมพ์ข้อความทั่วไปได้ แต่ระบบจะไม่ส่งข้อความที่มีลักษณะสั่งเพิ่ม หยุด เปลี่ยน หรือระบุขนาดยาโดยตรง'}
+                </Text>
               </View>
-              <Text selectable style={{ color: colors.warning, fontSize: 13 * multiplier, lineHeight: 19 * multiplier, fontWeight: '700' }}>ข้อมูลนี้มาจากสิ่งที่ผู้ใช้บันทึกเอง อาจไม่ครบถ้วนและไม่ใช่คำยืนยันว่ารับประทานยาจริง ห้ามใช้เพื่อปรับยา เพิ่มยา หยุดยา หรือเปลี่ยนขนาดยาเอง</Text>
+              <Text selectable style={{ color: colors.warning, fontSize: 13 * multiplier, lineHeight: 19 * multiplier, fontWeight: '700' }}>
+                {lang === 'en'
+                  ? 'This data is self-reported by user. Not a proof of actual ingestion. Do not use to modify prescriptions.'
+                  : 'ข้อมูลนี้มาจากสิ่งที่ผู้ใช้บันทึกเอง อาจไม่ครบถ้วนและไม่ใช่คำยืนยันว่ารับประทานยาจริง ห้ามใช้เพื่อปรับยา เพิ่มยา หยุดยา หรือเปลี่ยนขนาดยาเอง'}
+              </Text>
             </View>
           )}
         </SectionCard>
@@ -432,17 +496,35 @@ export default function CaregiverScreen() {
 
       {!loading && !activePatients.length && !incomingInvitations.length ? (
         <View style={{ alignItems: 'center', gap: 6, paddingVertical: 8 }}>
-          <FeatureIcon name="remote-caregiver" size={66} accessibilityLabel="ผู้ดูแลระยะไกล" />
-          <Text selectable style={{ color: colors.text, fontWeight: '900', fontSize: 17 * multiplier }}>ยังไม่มีบัญชีที่คุณดูแล</Text>
-          <Text selectable style={{ color: colors.muted, textAlign: 'center', lineHeight: 21 * multiplier }}>เมื่อมีผู้ใช้ส่งคำเชิญมาที่ Username ของคุณ คำเชิญจะแสดงในหน้านี้</Text>
+          <FeatureIcon name="remote-caregiver" size={66} accessibilityLabel={lang === 'en' ? 'Remote Caregiver' : 'ผู้ดูแลระยะไกล'} />
+          <Text selectable style={{ color: colors.text, fontWeight: '900', fontSize: 17 * multiplier }}>
+            {lang === 'en' ? 'No Managed Accounts Yet' : 'ยังไม่มีบัญชีที่คุณดูแล'}
+          </Text>
+          <Text selectable style={{ color: colors.muted, textAlign: 'center', lineHeight: 21 * multiplier }}>
+            {lang === 'en'
+              ? 'When a user sends an invitation to your Username, it will appear here.'
+              : 'เมื่อมีผู้ใช้ส่งคำเชิญมาที่ Username ของคุณ คำเชิญจะแสดงในหน้านี้'}
+          </Text>
         </View>
       ) : null}
 
-      <SectionCard title="ผู้ติดต่อฉุกเฉินของฉัน">
-        <Text selectable style={{ color: colors.text, fontSize: 19 * multiplier, fontWeight: '800' }}>{profile.emergencyName || 'ยังไม่ได้ตั้งชื่อ'}</Text>
-        <Text selectable style={{ color: colors.muted, fontSize: 17 * multiplier }}>{profile.emergencyPhone || 'ยังไม่ได้ตั้งเบอร์โทร'}</Text>
-        <PrimaryButton label={phone ? 'โทรหาผู้ติดต่อ' : 'ยังไม่ได้ตั้งค่าเบอร์โทร'} onPress={() => phone ? void Linking.openURL(`tel:${phone}`) : undefined} disabled={!phone} />
-        <PrimaryButton label="โทรสายด่วนฉุกเฉิน 1669" tone="danger" onPress={() => void Linking.openURL('tel:1669')} />
+      <SectionCard title={lang === 'en' ? 'My Emergency Contact' : 'ผู้ติดต่อฉุกเฉินของฉัน'}>
+        <Text selectable style={{ color: colors.text, fontSize: 19 * multiplier, fontWeight: '800' }}>
+          {profile.emergencyName || (lang === 'en' ? 'Name not set' : 'ยังไม่ได้ตั้งชื่อ')}
+        </Text>
+        <Text selectable style={{ color: colors.muted, fontSize: 17 * multiplier }}>
+          {profile.emergencyPhone || (lang === 'en' ? 'Phone number not set' : 'ยังไม่ได้ตั้งเบอร์โทร')}
+        </Text>
+        <PrimaryButton
+          label={phone ? (lang === 'en' ? 'Call Contact' : 'โทรหาผู้ติดต่อ') : (lang === 'en' ? 'Phone number not configured' : 'ยังไม่ได้ตั้งค่าเบอร์โทร')}
+          onPress={() => phone ? void Linking.openURL(`tel:${phone}`) : undefined}
+          disabled={!phone}
+        />
+        <PrimaryButton
+          label={lang === 'en' ? 'Call Emergency Hotline (1669)' : 'โทรสายด่วนฉุกเฉิน 1669'}
+          tone="danger"
+          onPress={() => void Linking.openURL('tel:1669')}
+        />
       </SectionCard>
     </ScrollView>
   );

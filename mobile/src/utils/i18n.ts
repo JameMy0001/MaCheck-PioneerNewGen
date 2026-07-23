@@ -119,6 +119,13 @@ export const translations = {
     scanning_progress: 'กำลังวิเคราะห์ฉลากยา...',
     scan_success: 'อ่านข้อมูลฉลากยาสำเร็จ',
     scan_failed: 'ไม่สามารถอ่านฉลากยาได้ กรุณาลองใหม่อีกครั้ง',
+    camera_perm_title: 'ต้องใช้สิทธิ์กล้อง',
+    camera_perm_desc: 'MaCheck ใช้กล้องเฉพาะตอนสแกนฉลากหรือ barcode ภาพไม่ถูกอัปโหลดโดยอัตโนมัติ',
+    camera_perm_btn: 'อนุญาตให้ใช้กล้อง',
+    scanner_search_title: 'ค้นจากผลสแกน ชื่อ หรือสรรพคุณ',
+    scanner_field_label: 'ข้อความบนฉลาก ชื่อยา หรือสรรพคุณ',
+    scanner_field_placeholder: 'เช่น พาราเซตามอล หรือแก้ปวดลดไข้',
+    rescan_btn: 'สแกนอีกครั้ง',
 
     // Caregiver Screen
     caregiver_title: 'ผู้ดูแลและฉุกเฉิน',
@@ -286,6 +293,13 @@ export const translations = {
     scanning_progress: 'Analyzing medication label...',
     scan_success: 'Medication label read successfully',
     scan_failed: 'Could not read label. Please try again.',
+    camera_perm_title: 'Camera Permission Required',
+    camera_perm_desc: 'MaCheck uses the camera solely for scanning labels or barcodes. Images are not uploaded automatically.',
+    camera_perm_btn: 'Allow Camera Access',
+    scanner_search_title: 'Search Scanned Result, Drug Name, or Indication',
+    scanner_field_label: 'Label text, drug name, or indication',
+    scanner_field_placeholder: 'e.g. Paracetamol or Pain reliever',
+    rescan_btn: 'Scan Again',
 
     // Caregiver Screen
     caregiver_title: 'Caregiver & Emergency',

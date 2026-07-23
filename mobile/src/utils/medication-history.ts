@@ -3,6 +3,7 @@ import { getMedicine } from '@/data/medicine-db';
 import type { CabinetMedicine, ScheduleSlot } from '@/types/models';
 import { formatMedicineDose } from '@/utils/medicine-dose';
 import { getTodayKey } from '@/utils/safety';
+import { getMealTimingLabel, getSlotLabel } from '@/utils/i18n';
 
 const slotOrder: ScheduleSlot[] = ['morning', 'noon', 'evening', 'bedtime'];
 
@@ -27,8 +28,8 @@ function parseDateKey(value: string) {
   return new Date(year, month - 1, day);
 }
 
-function formatDateTitle(value: string) {
-  return new Intl.DateTimeFormat('th-TH', {
+function formatDateTitle(value: string, lang: 'th' | 'en' = 'th') {
+  return new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'th-TH', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -53,6 +54,7 @@ export function buildMedicationHistory(
   cabinet: CabinetMedicine[],
   archivedCabinet: Record<string, CabinetMedicine>,
   days: number,
+  lang: 'th' | 'en' = 'th',
 ): MedicationHistorySection[] {
   return Object.entries(takenByDate)
     .filter(([date]) => isDateInRange(date, days))
@@ -67,38 +69,39 @@ export function buildMedicationHistory(
           if (!slotOrder.includes(slot)) return null;
           const medicine = resolveMedicine(cabinetMedicineId, cabinet, archivedCabinet);
           const definition = medicine ? getMedicine(medicine.medicineId) : undefined;
+          const fallbackDeleted = lang === 'en' ? 'Deleted Medication' : 'รายการยาที่ลบแล้ว';
+          const fallbackDose = lang === 'en' ? 'No dose data' : 'ไม่พบข้อมูลจำนวน';
+
           return {
             id: `${date}:${key}`,
             date,
             slot,
-            medicineName: medicine?.customName || definition?.nameTh || 'รายการยาที่ลบแล้ว',
+            medicineName: medicine?.customName || (lang === 'en' ? (definition?.nameEn || definition?.nameTh) : definition?.nameTh) || fallbackDeleted,
             medicineNameEn: definition?.nameEn,
-            dose: medicine ? formatMedicineDose(medicine) : 'ไม่พบข้อมูลจำนวน',
+            dose: medicine ? formatMedicineDose(medicine) : fallbackDose,
             mealTiming: medicine?.mealTiming ?? 'any',
           };
         })
         .filter((item): item is MedicationHistoryItem => item !== null)
         .sort((a, b) => slotOrder.indexOf(a.slot) - slotOrder.indexOf(b.slot));
-      return { date, title: formatDateTitle(date), data };
+      return { date, title: formatDateTitle(date, lang), data };
     })
     .filter((section) => section.data.length > 0);
 }
 
-function mealTimingLabel(value: CabinetMedicine['mealTiming']) {
-  if (value === 'before') return 'ก่อนอาหาร';
-  if (value === 'after') return 'หลังอาหาร';
-  return 'ไม่จำกัดมื้อ';
+export function historyMealTimingLabel(value: CabinetMedicine['mealTiming'], lang: 'th' | 'en' = 'th') {
+  return getMealTimingLabel(value, lang);
 }
 
-export function formatMedicationHistoryShare(sections: MedicationHistorySection[], days: number) {
+export function formatMedicationHistoryShare(sections: MedicationHistorySection[], days: number, lang: 'th' | 'en' = 'th') {
   const lines = sections.flatMap((section) => [
     section.title,
-    ...section.data.map((item) => `• ${slots[item.slot].label} ${item.medicineName} ${item.dose} (${mealTimingLabel(item.mealTiming)})`),
+    ...section.data.map((item) => `• ${getSlotLabel(item.slot, lang)} ${item.medicineName} ${item.dose} (${getMealTimingLabel(item.mealTiming, lang)})`),
     '',
   ]);
-  return [`สรุปประวัติการทานยา MaCheck ย้อนหลัง ${days} วัน`, 'แสดงเฉพาะรายการที่ผู้ใช้กดบันทึกว่า “ทานแล้ว”', '', ...lines].join('\n').trim();
-}
 
-export function historyMealTimingLabel(value: CabinetMedicine['mealTiming']) {
-  return mealTimingLabel(value);
+  if (lang === 'en') {
+    return [`MaCheck Medication Adherence History (Past ${days} Days)`, 'Shows only items marked as "Taken"', '', ...lines].join('\n').trim();
+  }
+  return [`สรุปประวัติการทานยา MaCheck ย้อนหลัง ${days} วัน`, 'แสดงเฉพาะรายการที่ผู้ใช้กดบันทึกว่า “ทานแล้ว”', '', ...lines].join('\n').trim();
 }
