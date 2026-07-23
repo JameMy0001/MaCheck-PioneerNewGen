@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Pressable, ScrollView, Text, View } from 'react-n
 
 import { Field, PrimaryButton, SectionCard } from '@/components/ui';
 import { colors } from '@/constants/theme';
-import { signInAnonymously, signInWithCredentials } from '@/services/auth';
+import { signInWithCredentials } from '@/services/auth';
 import { useAppStore } from '@/store/use-app-store';
 
 type Mode = 'register' | 'login' | 'recover';
@@ -17,7 +17,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [recoveryCode, setRecoveryCode] = useState('');
-  const [issuedRecoveryCode, setIssuedRecoveryCode] = useState('');
+  const [issuedRecoveryCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 

@@ -1,7 +1,6 @@
 import 'expo-sqlite/localStorage/install';
 
 import { foodClashes, interactions, medicines } from '@/data/medicine-db';
-import { getInteractionSafetyCopy } from '@/constants/interaction-safety';
 import { useClinicalCatalogStore, type ClinicalCatalogSource } from '@/store/use-clinical-catalog-store';
 import type { DrugInteraction, FoodClash, MedicineDefinition } from '@/types/models';
 
@@ -33,7 +32,7 @@ function loadCachedCatalog() {
   }
 }
 
-function saveCachedCatalog(catalog: ClinicalCatalogCache) {
+export function saveCachedCatalog(catalog: ClinicalCatalogCache) {
   try {
     localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(catalog));
   } catch (error) {

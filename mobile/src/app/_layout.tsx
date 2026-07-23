@@ -6,10 +6,8 @@ import { colors } from '@/constants/theme';
 import { refreshClinicalCatalog } from '@/services/clinical-catalog';
 import { startCaregiverMessaging, stopCaregiverMessaging } from '@/services/caregiver-messaging';
 import { rescheduleMedicationNotifications } from '@/services/notifications';
-import { isFirebaseConfigured } from '@/services/firebase';
 import { pullMaCheckSnapshot, pushMaCheckSnapshot } from '@/services/sync';
 import { useAppStore } from '@/store/use-app-store';
-import { useAgentStore } from '@/store/use-agent-store';
 
 import { DraggableAgentButton } from '@/components/agent/draggable-agent-button';
 

@@ -1,12 +1,5 @@
 import { getMedicine } from '@/data/medicine-db';
-import {
-  AGENT_REQUEST_MAX_ATTEMPTS,
-  AGENT_REQUEST_TIMEOUT_MS,
-  agentRetryDelayMs,
-  createAgentRequestId,
-  shouldRetryAgentRequest,
-  type AgentTransportCode,
-} from '@/services/agent-network';
+import type { AgentTransportCode } from '@/services/agent-network';
 import { isFirebaseConfigured } from '@/services/firebase';
 import { getAdherence, useAppStore } from '@/store/use-app-store';
 import { checkDrugInteractions, getTodayKey } from '@/utils/safety';
@@ -133,8 +126,6 @@ interface AgentQuotaResponse {
   message?: string;
 }
 
-let serverSupportsRequestReplay = false;
-
 const normalize = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('th');
 
 function allergyMatchesMedicine(allergy: string, medicineId: string) {
@@ -150,8 +141,6 @@ function allergyMatchesMedicine(allergy: string, medicineId: string) {
       return candidate.length >= 4 && (candidate === allergen || candidate.includes(allergen) || allergen.includes(candidate));
     });
 }
-
-const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 async function invokeAgentFunction(body: Record<string, unknown>, options: InvokeAgentOptions = {}) {
   const intent = String(body.intent ?? 'summary');
@@ -222,7 +211,7 @@ export async function generateAIChatReplyLive(
       requiresFollowUp: false,
       executionMode: 'live',
     };
-  } catch (backendErr) {
+  } catch {
     return {
       text: `[ระบบกฎความปลอดภัยออฟไลน์]\nขอบคุณสำหรับข้อมูลเรื่อง "${userText.slice(0, 50)}" โปรดรับประทานยาตามเวลาและคำแนะนำของแพทย์หรือเภสัชกรอย่างเคร่งครัด`,
       responseType: 'information',

@@ -1,6 +1,4 @@
-import { isFirebaseConfigured } from '@/services/firebase';
 import type { MealTiming, MedicineStatus, ScheduleSlot } from '@/types/models';
-import { getTodayKey } from '@/utils/safety';
 
 export type CaregiverRelationKind =
   | 'active_caregiver'

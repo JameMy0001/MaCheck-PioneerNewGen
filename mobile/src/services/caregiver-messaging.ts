@@ -1,10 +1,8 @@
-import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { Platform } from 'react-native';
 
 import { getMyCaregiverNudges } from '@/services/caregiver';
-import { requestNotificationPermission } from '@/services/notifications';
 import { selectUnreadCaregiverMessageCount, useCaregiverInboxStore } from '@/store/use-caregiver-inbox-store';
 
 let stopActiveMessaging: (() => void) | undefined;

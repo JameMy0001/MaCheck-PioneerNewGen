@@ -1,7 +1,7 @@
 """
 MaCheck NVIDIA RAPIDS FastAPI Microservice for Google Cloud Run (GPU) / Cloud Vertex AI
-Runs NVIDIA cuDF (cudf.pandas) on GPU nodes to calculate real-time adherence risk scores,
-anomaly detection, and direct streaming to Google BigQuery.
+Runs NVIDIA cuDF on GPU nodes to calculate real-time adherence risk scores,
+caregiver priority queues, and direct streaming to Google BigQuery & Cloud Storage.
 """
 
 import os
@@ -13,14 +13,13 @@ from typing import List, Dict, Any, Optional
 # Try enabling NVIDIA cuDF acceleration
 USE_GPU_CUDF = False
 try:
-    import cudf.pandas
-    cudf.pandas.install()
+    import cudf
     USE_GPU_CUDF = True
-    logging.info("[NVIDIA RAPIDS GPU Engine] cuDF pandas acceleration enabled.")
+    logging.info("[NVIDIA RAPIDS GPU Engine] cuDF acceleration enabled.")
 except ImportError:
-    logging.info("[NVIDIA RAPIDS Engine] cuDF not detected in container environment, running fallback mode.")
+    logging.info("[NVIDIA RAPIDS Engine] cuDF not detected in container environment, running CPU benchmark engine.")
 
-from rapids_pipeline import run_nvidia_rapids_analysis, generate_synthetic_adherence_dataset
+from rapids_pipeline import run_cpu_vs_gpu_benchmark, generate_synthetic_adherence_dataset
 
 # Try importing FastAPI & Pydantic for Microservice container
 try:
@@ -36,7 +35,7 @@ except ImportError:
 if HAS_FASTAPI:
     app = FastAPI(
         title="MaCheck NVIDIA RAPIDS Analytics Microservice",
-        description="Google Cloud Run GPU Microservice for Real-Time Risk Analytics",
+        description="Google Cloud Run GPU Microservice for Real-Time Risk Analytics & Caregiver Priority Queues",
         version="1.0.0"
     )
 
@@ -54,7 +53,7 @@ if HAS_FASTAPI:
             "status": "online",
             "service": "macheck-nvidia-rapids-analytics",
             "gpu_acceleration": USE_GPU_CUDF,
-            "engine": "NVIDIA cuDF (GPU)" if USE_GPU_CUDF else "High-Performance CPU Engine",
+            "engine": "NVIDIA cuDF (GPU)" if USE_GPU_CUDF else "High-Performance CPU Engine (Pandas fallback)",
             "cloud_platform": "Google Cloud Run with GPU / Vertex AI"
         }
 
@@ -72,9 +71,8 @@ if HAS_FASTAPI:
     @app.post("/api/v1/analytics/risk-score")
     def compute_risk_scores(payload: Dict[str, Any]):
         """Runs NVIDIA RAPIDS GPU accelerated risk score calculation."""
-        num_records = payload.get("records_count", 10000)
-        dataset = generate_synthetic_adherence_dataset(num_records=num_records)
-        results = run_nvidia_rapids_analysis(dataset)
+        num_patients = payload.get("num_patients", 1000)
+        results = run_cpu_vs_gpu_benchmark(num_patients=num_patients)
         return {
             "success": True,
             "results": results
@@ -89,4 +87,5 @@ if __name__ == "__main__":
     else:
         print("=== MaCheck NVIDIA RAPIDS Cloud Run Microservice Structure Verified ===")
         print("FastAPI/Pydantic ready for deployment in Docker container.")
-        print("Run 'python3 rapids_pipeline.py' for standalone pipeline benchmark.")
+        results = run_cpu_vs_gpu_benchmark(num_patients=1000)
+        print(f"Standalone pipeline execution completed successfully. Deterministic checksum: {results['checksum']}")

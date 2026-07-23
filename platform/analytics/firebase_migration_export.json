@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "migratedAt": "2026-07-23T07:20:52.542Z",
+  "migratedAt": "2026-07-23T07:41:25.661Z",
   "projectId": "macheck-app-dev",
   "counts": {
     "medications": 5,
     "interactions": 2,
     "foodInteractions": 1
   },
-  "checksum": "ce6b94c73ab587fc75ef970927006dffc9c4881b9c95954d7a26838e69082ce8"
+  "checksum": "d5ad994a35b28c67e1226a64e12ef45c103cb58466c45224769ecc21419e35aa"
 }
