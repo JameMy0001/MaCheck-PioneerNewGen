@@ -1,4 +1,10 @@
+/**
+ * Caregiver Service for MaCheck Mobile
+ * Connects caregiver workflows to Firebase Callable Functions and Firestore
+ */
+
 import type { MealTiming, MedicineStatus, ScheduleSlot } from '@/types/models';
+import { callCallableFunction } from '@/services/firebase-client';
 
 export type CaregiverRelationKind =
   | 'active_caregiver'
@@ -71,13 +77,36 @@ export async function getCaregiverRelationships(): Promise<CaregiverRelationship
   return [];
 }
 
-export async function inviteCaregiver(username: string): Promise<void> {
-  console.log('[Caregiver] Inviting via Firebase Firestore:', username);
+/**
+ * Send Caregiver Invite by Handle via Firebase Callable
+ */
+export async function inviteCaregiver(targetHandle: string): Promise<void> {
+  console.log('[Caregiver] Inviting caregiver via Firebase Callable:', targetHandle);
+  await callCallableFunction<{ success: boolean; inviteId: string }>('inviteCaregiver', {
+    targetHandle,
+  });
 }
 
-export async function respondToCaregiverInvitation(invitationId: string, accept: boolean): Promise<void> {}
+/**
+ * Respond to Caregiver Invitation (Accept/Decline)
+ */
+export async function respondToCaregiverInvitation(inviteId: string, accept: boolean): Promise<void> {
+  await callCallableFunction<{ success: boolean }>('respondCaregiverInvite', {
+    inviteId,
+    accept,
+  });
+}
+
 export async function cancelCaregiverInvitation(invitationId: string): Promise<void> {}
-export async function revokeCaregiverAccess(linkId: string): Promise<void> {}
+
+/**
+ * Revoke Caregiver Access
+ */
+export async function revokeCaregiverAccess(caregiverUid: string): Promise<void> {
+  await callCallableFunction<{ success: boolean }>('revokeCaregiverAccess', {
+    caregiverUid,
+  });
+}
 
 export async function sendCaregiverNudge(patientUserId: string, kind: 'check_schedule' | 'contact_caregiver'): Promise<void> {}
 export async function sendCaregiverMessage(patientUserId: string, text: string): Promise<string> {

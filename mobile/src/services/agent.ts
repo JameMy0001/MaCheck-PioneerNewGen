@@ -1,8 +1,10 @@
 import { getMedicine } from '@/data/medicine-db';
 import type { AgentTransportCode } from '@/services/agent-network';
 import { isFirebaseConfigured } from '@/services/firebase';
+import { callCallableFunction } from '@/services/firebase-client';
 import { getAdherence, useAppStore } from '@/store/use-app-store';
 import { checkDrugInteractions, getTodayKey } from '@/utils/safety';
+
 
 export interface AgentEvidenceRef {
   type: string;
@@ -151,52 +153,37 @@ async function invokeAgentFunction(body: Record<string, unknown>, options: Invok
   const message = String(body.message ?? '').trim();
   const lang = String(body.language ?? body.lang ?? 'th').toLowerCase().startsWith('en') ? 'en' : 'th';
 
-  // 1. Attempt Google Gemini API REST call if API Key is available
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || 'AIzaSyAv0-3QihuuNsG9POJ_XWw3icteL3irdGg';
-  if (apiKey && message) {
+  // 1. Call Firebase Callable Cloud Function `chatAgent` (Secure Backend Gemini)
+  if (message) {
     try {
       const store = useAppStore.getState();
       const activeMeds = store.cabinet
         .filter((c) => c.status === 'active')
-        .map((c) => (lang === 'en' ? getMedicine(c.medicineId)?.nameEn : getMedicine(c.medicineId)?.nameTh) || c.medicineId)
-        .join(', ');
-      const allergiesStr = store.profile.allergies.join(', ');
-      const diseasesStr = store.profile.diseases.join(', ');
+        .map((c) => (lang === 'en' ? getMedicine(c.medicineId)?.nameEn : getMedicine(c.medicineId)?.nameTh) || c.medicineId);
 
-      const promptContext = lang === 'en'
-        ? `You are MaCheck AI Care Agent, an intelligent medication safety assistant. Patient Active Meds: [${activeMeds || 'None'}], Allergies: [${allergiesStr || 'None'}], Conditions: [${diseasesStr || 'None'}]. Answer the patient's question clearly, concisely, and safely in English. Never prescribe new drugs or alter dosages.`
-        : `คุณคือผู้ช่วย AI Care Agent วิเคราะห์ความปลอดภัยการใช้ยา ยาที่ใช้อยู่: [${activeMeds || 'ไม่มี'}], ประวัติแพ้ยา: [${allergiesStr || 'ไม่มี'}], โรคประจำตัว: [${diseasesStr || 'ไม่มี'}]. ตอบคำถามผู้ป่วยอย่างกระชับ ชัดเจน และปลอดภัยเป็นภาษาไทย ห้ามสั่งยาหรือเปลี่ยนขนาดยาเอง`;
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              { role: 'user', parts: [{ text: promptContext }] },
-              { role: 'user', parts: [{ text: message }] },
-            ],
-          }),
+      const result = await callCallableFunction<{ success: boolean; reply: string; execution_mode: string }>('chatAgent', {
+        message,
+        lang,
+        context: {
+          activeMeds,
+          allergies: store.profile.allergies,
+          diseases: store.profile.diseases,
         },
-      );
+      });
 
-      if (response.ok) {
-        const data = await response.json();
-        const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (replyText) {
-          return {
-            success: true,
-            execution_mode: 'live',
-            reply: replyText,
-            response_type: 'information',
-          };
-        }
+      if (result && result.reply) {
+        return {
+          success: true,
+          execution_mode: result.execution_mode || 'live',
+          reply: result.reply,
+          response_type: 'information',
+        };
       }
     } catch (error) {
-      console.warn('[MaCheck Agent] Gemini REST API fetch failed, switching to clinical intelligence engine:', error);
+      console.warn('[MaCheck Agent] Callable Function chatAgent call failed, switching to local safety rules:', error);
     }
   }
+
 
   // 2. Intelligent Clinical Safety Engine (Local Live Inference)
   const store = useAppStore.getState();

@@ -25,6 +25,11 @@ service cloud.firestore {
     }
 
     // Clinical Catalog - Authenticated users can read published data
+    match /clinicalCatalog/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
     match /clinicalMedications/{medId} {
       allow read: if isAuthenticated();
       allow write: if false;
@@ -45,6 +50,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
+
     // Private Handles - Client direct access completely denied (Callable Cloud Functions only)
     match /privateHandles/{handle} {
       allow read, write: if false;
@@ -64,9 +70,15 @@ service cloud.firestore {
         allow write: if isOwner(userId);
       }
 
+      match /riskSummary/{summaryId} {
+        allow read: if isOwner(userId) || isCaregiverWithPermission(userId, 'readMedications');
+        allow write: if false; // Server / Admin SDK only
+      }
+
       match /activityLogs/{logId} {
         allow read, write: if isOwner(userId);
       }
+
 
       match /caregiverAccess/{caregiverUid} {
         allow read: if isOwner(userId) || (isAuthenticated() && request.auth.uid == caregiverUid);

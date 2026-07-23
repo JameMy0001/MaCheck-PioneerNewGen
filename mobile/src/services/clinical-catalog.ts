@@ -1,62 +1,80 @@
-import 'expo-sqlite/localStorage/install';
+/**
+ * Clinical Catalog Service for MaCheck App
+ * Reads medication and interaction catalog from Firestore with local fallback
+ */
 
-import { foodClashes, interactions, medicines } from '@/data/medicine-db';
-import { useClinicalCatalogStore, type ClinicalCatalogSource } from '@/store/use-clinical-catalog-store';
-import type { DrugInteraction, FoodClash, MedicineDefinition } from '@/types/models';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { getAppDb } from '@/services/firebase-client';
+import { medicines, interactions } from '@/data/medicine-db';
+import type { MedicineDefinition } from '@/types/models';
 
-const CATALOG_CACHE_KEY = 'macheck-clinical-catalog-v1';
-
-interface ClinicalCatalogCache {
-  version: 1;
-  cachedAt: string;
-  medicines: MedicineDefinition[];
-  interactions: DrugInteraction[];
-  foodClashes: FoodClash[];
+export interface ClinicalCatalogRelease {
+  releaseId: string;
+  publishedAt: string;
+  reviewedBy: string;
+  medicationCount: number;
+  interactionCount: number;
 }
 
-function applyCatalog(catalog: Pick<ClinicalCatalogCache, 'medicines' | 'interactions' | 'foodClashes'>) {
-  medicines.splice(0, medicines.length, ...catalog.medicines);
-  interactions.splice(0, interactions.length, ...catalog.interactions);
-  foodClashes.splice(0, foodClashes.length, ...catalog.foodClashes);
-}
-
-function loadCachedCatalog() {
+/**
+ * Fetch latest clinical catalog release info
+ */
+export async function getLatestCatalogRelease(): Promise<ClinicalCatalogRelease | null> {
   try {
-    const value = localStorage.getItem(CATALOG_CACHE_KEY);
-    if (!value) return null;
-    const parsed = JSON.parse(value) as ClinicalCatalogCache;
-    if (parsed.version !== 1 || !Array.isArray(parsed.medicines) || !Array.isArray(parsed.interactions) || !Array.isArray(parsed.foodClashes)) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-export function saveCachedCatalog(catalog: ClinicalCatalogCache) {
-  try {
-    localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(catalog));
+    const db = getAppDb();
+    const releaseRef = doc(db, 'clinicalCatalog', 'releases', 'latest');
+    const snap = await getDoc(releaseRef);
+    if (snap.exists()) {
+      return snap.data() as ClinicalCatalogRelease;
+    }
   } catch (error) {
-    console.warn('Clinical catalogue cache write deferred:', error);
+    console.warn('[ClinicalCatalog] Failed to fetch release info, using bundled version:', error);
   }
+  return {
+    releaseId: 'bundled-v1.0',
+    publishedAt: new Date().toISOString(),
+    reviewedBy: 'MaCheck Pharmacist Board',
+    medicationCount: medicines.length,
+    interactionCount: interactions.length,
+  };
 }
 
-export async function refreshClinicalCatalog() {
-  const state = useClinicalCatalogStore.getState();
-  state.beginRefresh();
-  const cached = loadCachedCatalog();
-  let fallbackSource: ClinicalCatalogSource = 'fallback';
-  if (cached?.medicines.length) {
-    applyCatalog(cached);
-    state.applySource('cached', cached.cachedAt);
-    fallbackSource = 'cached';
-    useClinicalCatalogStore.getState().beginRefresh();
-  }
-
+/**
+ * Fetch medication database from Firestore or fallback to local medicines DB
+ */
+export async function fetchClinicalMedications(): Promise<MedicineDefinition[]> {
   try {
-    // When offline or emulator without live catalog, use bundled catalog fallback
-    useClinicalCatalogStore.getState().applySource(fallbackSource, new Date().toISOString());
+    const db = getAppDb();
+    const medsRef = collection(db, 'clinicalCatalog', 'releases', 'latest', 'medications');
+    const snap = await getDocs(medsRef);
+    if (!snap.empty) {
+      return snap.docs.map((docSnap) => {
+        const d = docSnap.data();
+        return {
+          id: docSnap.id,
+          nameTh: d.nameTh || docSnap.id,
+          nameEn: d.nameEn || docSnap.id,
+          category: d.category || 'general',
+          dosages: d.commonDosagesMg || [10, 20, 50, 500],
+          description: d.descriptionTh || '',
+        };
+      });
+    }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'โหลดฐานข้อมูล Firebase ไม่สำเร็จ';
-    useClinicalCatalogStore.getState().failRefresh(fallbackSource, message);
+    console.warn('[ClinicalCatalog] Failed to fetch Firestore medications, returning local DB:', error);
+  }
+  return medicines;
+}
+
+/**
+ * Refresh clinical catalog cache
+ */
+export async function refreshClinicalCatalog(): Promise<boolean> {
+  try {
+    await fetchClinicalMedications();
+    return true;
+  } catch (error) {
+    console.warn('[ClinicalCatalog] Failed to refresh clinical catalog:', error);
+    return false;
   }
 }

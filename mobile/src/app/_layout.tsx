@@ -25,7 +25,8 @@ export default function RootLayout() {
       if (syncStarted) return;
       syncStarted = true;
       try {
-        await refreshClinicalCatalog().catch((error) => console.warn('Clinical catalogue refresh deferred:', error));
+        await refreshClinicalCatalog().catch((error: unknown) => console.warn('Clinical catalogue refresh deferred:', error));
+
         const remote = await pullMaCheckSnapshot();
         if (remote) useAppStore.getState().mergeRemoteSnapshot({
           cabinet: remote.cabinet,

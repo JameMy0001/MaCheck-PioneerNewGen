@@ -86,6 +86,20 @@ export default function HomeScreen() {
         <PrimaryButton label={t('record_water_btn', lang)} tone="neutral" icon={<FeatureIcon name="water-tracking" size={28} />} onPress={recordWater} disabled={water >= 12} />
       </SectionCard>
 
+      {adherence < 80 ? (
+        <View style={{ backgroundColor: colors.warningSoft || '#FFF3CD', borderColor: colors.warning, borderWidth: 1, borderRadius: 16, padding: 14, gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <FeatureIcon name="medication-safety" size={26} />
+            <Text style={{ color: colors.warning, fontWeight: '900', fontSize: 16 * multiplier }}>การรับประทานยาอยู่ในเกณฑ์เฝ้าระวัง ({adherence}%)</Text>
+          </View>
+          <Text style={{ color: colors.text, fontSize: 14 * multiplier, lineHeight: 20 * multiplier }}>
+            ระบบตรวจพบการลืมกินยาหรือกินยาช้าเกินกำหนด Gemini AI สามารถอธิบายวิเคราะห์เหตุผลความเสี่ยงทางการแพทย์ให้คุณได้
+          </Text>
+        </View>
+      ) : null}
+
+
+
       <View style={{ gap: 8 }}>
         <Text selectable style={{ color: colors.text, fontSize: 22 * multiplier, fontWeight: '900' }}>{t('today_schedule', lang)}</Text>
         <Text selectable style={{ color: colors.muted, fontSize: 14 * multiplier }}>{t('tap_checkbox_hint', lang)}</Text>

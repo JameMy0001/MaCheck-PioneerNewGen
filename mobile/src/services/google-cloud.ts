@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { callCallableFunction } from '@/services/firebase-client';
 
 const extra = Constants.expoConfig?.extra ?? {};
 
@@ -18,14 +19,24 @@ export interface GeminiVisionResult {
 }
 
 /**
- * Scan medicine label via secure backend or client AI service
+ * Scan medicine label via secure Firebase Callable Cloud Function (Multimodal Gemini Vision)
  */
 export async function scanMedicineWithGeminiFlash(base64Image: string): Promise<GeminiVisionResult> {
   if (!base64Image) {
     throw new Error('กรุณาถ่ายภาพหรือเลือกภาพฉลากยาเพื่อสแกน');
   }
 
-  // Return realistic low-confidence result requiring manual confirmation if model is unavailable
+  try {
+    const result = await callCallableFunction<GeminiVisionResult>('scanMedicationLabel', {
+      base64Image,
+    });
+    if (result && (result.medicineName || result.rawAnalysis)) {
+      return result;
+    }
+  } catch (error) {
+    console.warn('[GoogleCloud] scanMedicationLabel callable function failed:', error);
+  }
+
   return {
     medicineName: '',
     genericName: '',

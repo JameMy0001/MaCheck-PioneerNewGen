@@ -93,3 +93,15 @@ export interface ClinicalInteractionDoc {
   releaseId: string;
   reviewedAt: string;
 }
+
+export interface RiskSummaryDoc {
+  score: number;
+  tier: 'low' | 'medium' | 'high' | 'critical';
+  reasonCodes: string[];
+  rankedAt: string;
+  adherence7d: number;
+  missedStreak: number;
+  explanationTh?: string;
+  schemaVersion: number;
+}
+

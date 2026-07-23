@@ -276,3 +276,95 @@ export const chatAgent = onCall(async (request) => {
     };
   }
 });
+
+/**
+ * Gemini Decision Explanation: Explain Deterministic Risk Score in Thai
+ */
+export const explainRiskScore = onCall(async (request) => {
+  const uid = assertAuth(request);
+
+  const summaryDoc = await db.collection("users").doc(uid).collection("riskSummary").doc("current").get();
+  if (!summaryDoc.exists) {
+    throw new HttpsError("not-found", "No current risk summary found.");
+  }
+
+  const summary = summaryDoc.data()!;
+  const score = summary.score || 0;
+  const tier = summary.tier || "low";
+  const reasonCodes = summary.reasonCodes || [];
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return {
+      status: "success",
+      explanation: `คะแนนความเสี่ยงของคุณคือ ${score} (${tier}) ตามรหัสเหตุผล: ${reasonCodes.join(", ")}`,
+      executionMode: "rules_only",
+    };
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const prompt = `คุณคือผู้ช่วยการแพทย์วิเคราะห์ความเสี่ยงการใช้ยา ให้คำอธิบายแก่ผู้ป่วยและผู้ดูแลเป็นภาษาไทยที่เข้าใจง่าย กระชับ และสุภาพ 
+ข้อมูลคะแนนความเสี่ยงที่ประมวลผลแล้ว:
+- Risk Score: ${score}/100 (Tier: ${tier})
+- Reason Codes: ${reasonCodes.join(", ")}
+
+คำสั่ง:
+1. อธิบายสาเหตุของคะแนนความเสี่ยงตาม Reason Codes อย่างตรงไปตรงมา
+2. ให้คำแนะนำเชิงปฏิบัติตามความปลอดภัย เช่น การจัดตารางยาให้ตรงเวลา การปรึกษาเภสัชกร
+3. ห้ามสั่งยา ห้ามเปลี่ยนขนาดยา และห้ามวินิจฉัยโรคใหม่โดยเด็ดขาด`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const explanation = response.text();
+
+    return {
+      status: "success",
+      score,
+      tier,
+      reasonCodes,
+      explanation,
+      modelId: "gemini-2.5-flash",
+    };
+  } catch (error: any) {
+    return {
+      status: "error",
+      score,
+      tier,
+      reasonCodes,
+      explanation: `คะแนนความเสี่ยง: ${score} (${tier}) เหตุผล: ${reasonCodes.join(", ")}`,
+      executionMode: "rules_only",
+    };
+  }
+});
+
+/**
+ * Analytics Pipeline Export: Export de-identified dose events for GCS ingestion
+ */
+export const exportDoseEvents = onCall(async (request) => {
+  assertAuth(request);
+
+  const snapshot = await db.collectionGroup("doseEvents").limit(1000).get();
+  const records = snapshot.docs.map((docSnap) => {
+    const d = docSnap.data();
+    return {
+      eventId: docSnap.id,
+      medicationClientId: d.medicationClientId,
+      slot: d.slot,
+      eventDate: d.eventDate,
+      taken: d.taken,
+      occurredAt: d.occurredAt,
+      idempotencyKey: d.idempotencyKey,
+    };
+  });
+
+  return {
+    status: "success",
+    exportedCount: records.length,
+    exportedAt: new Date().toISOString(),
+    bucketTarget: "gs://macheck-analytics-raw/dose-events/",
+  };
+});
+

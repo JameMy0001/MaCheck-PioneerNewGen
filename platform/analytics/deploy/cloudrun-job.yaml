@@ -1,0 +1,28 @@
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: macheck-rapids-pipeline
+  labels:
+    cloud.googleapis.com/location: asia-southeast1
+spec:
+  template:
+    spec:
+      template:
+        spec:
+          containers:
+          - image: asia-southeast1-docker.pkg.dev/macheck-app-dev/macheck/analytics:latest
+            command: ["python", "main.py"]
+            env:
+            - name: GCP_PROJECT_ID
+              value: macheck-app-dev
+            - name: BIGQUERY_DATASET
+              value: macheck_analytics
+            - name: GCS_RAW_BUCKET
+              value: macheck-analytics-raw
+            resources:
+              limits:
+                cpu: "4"
+                memory: "16Gi"
+                nvidia.com/gpu: "1"
+          nodeSelector:
+            run.googleapis.com/accelerator: nvidia-l4
