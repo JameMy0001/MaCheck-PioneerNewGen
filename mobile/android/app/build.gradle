@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.yacheck.app'
+    namespace 'com.macheck.app'
     defaultConfig {
-        applicationId 'com.yacheck.app'
+        applicationId 'com.macheck.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

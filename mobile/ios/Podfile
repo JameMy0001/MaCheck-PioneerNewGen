@@ -26,7 +26,7 @@ platform :ios, podfile_properties['ios.deploymentTarget'] || '16.4'
 
 # Standalone embeds the JavaScript bundle like Release, while keeping a
 # separate configuration that can be signed by an Apple Personal Team.
-project 'YaCheck', {
+project 'MaCheck', {
   'Debug' => :debug,
   'Standalone' => :release,
   'Release' => :release,
@@ -34,7 +34,7 @@ project 'YaCheck', {
 
 prepare_react_native_project!
 
-target 'YaCheck' do
+target 'MaCheck' do
   use_expo_modules!
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'

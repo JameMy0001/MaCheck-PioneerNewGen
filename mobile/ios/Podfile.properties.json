@@ -3,6 +3,6 @@
   "ios.buildReactNativeFromSource": "true",
   "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
   "expo.inlineModules.watchedDirectories": "[]",
-  "expo.inlineModules.xcodeProjectTargets": "{\"mainTarget\":\"YaCheck\",\"targets\":[]}",
+  "expo.inlineModules.xcodeProjectTargets": "{\"mainTarget\":\"MaCheck\",\"targets\":[]}",
   "expo-image.disable-libdav1d": "false"
 }
