@@ -71,6 +71,11 @@ target 'MaCheck' do
       target.build_configurations.each do |config|
         config.build_settings['REACT_NATIVE_PATH'] = File.expand_path('../node_modules/react-native', __dir__)
       end
+      target.build_phases.each do |phase|
+        if phase.respond_to?(:shell_script) && phase.shell_script && !phase.shell_script.include?('REACT_NATIVE_PATH=')
+          phase.shell_script = "export REACT_NATIVE_PATH=\"${REACT_NATIVE_PATH:-$PODS_ROOT/../node_modules/react-native}\"\n" + phase.shell_script
+        end
+      end
     end
     react_native_post_install(
       installer,
