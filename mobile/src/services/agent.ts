@@ -174,7 +174,7 @@ export function getAgentErrorMessage(error: unknown) {
     return 'เซสชันเข้าสู่ระบบหมดอายุ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่';
   }
   if (error.code === 'NOT_CONFIGURED') {
-    return 'Development build นี้ไม่มีค่าเชื่อมต่อ Supabase กรุณาปิด Metro แล้วเปิดใหม่หลังตรวจไฟล์ .env';
+    return 'Development build นี้ไม่มีค่าเชื่อมต่อ Firebase กรุณาปิด Metro แล้วเปิดใหม่หลังตรวจไฟล์ .env';
   }
   if (error.code === 'NETWORK_ERROR') {
     return `การเชื่อมต่อสะดุดหลังลองส่งอัตโนมัติ ${error.attempts} ครั้ง ข้อมูลที่กรอกยังไม่ถูกทิ้ง`;

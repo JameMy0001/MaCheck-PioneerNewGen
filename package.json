@@ -1,15 +1,9 @@
 {
-  "name": "macheck-prototype",
+  "name": "macheck-app",
   "version": "1.0.0",
-  "description": "MaCheck Web Prototype",
-  "type": "module",
-  "main": "index.html",
+  "description": "MaCheck App - Google Competition Stack",
+  "private": true,
   "scripts": {
-    "start": "npx serve ."
-  },
-  "dependencies": {
-    "@langchain/core": "^0.2.0",
-    "@langchain/openai": "^0.2.0",
-    "langchain": "^0.2.0"
+    "typecheck": "npm --prefix mobile run typecheck && npm --prefix functions run build"
   }
 }
