@@ -28,17 +28,17 @@ export default function SafetyScreen() {
 
   const drugFindings = useMemo(() => {
     void catalogRevision;
-    return checkDrugInteractions(active.map((item) => item.medicineId));
-  }, [active, catalogRevision]);
+    return checkDrugInteractions(active.map((item) => item.medicineId), lang);
+  }, [active, catalogRevision, lang]);
 
   const foodFindings = useMemo(() => {
     void catalogRevision;
-    return checkFoodQuery(foodSubmitted, active, diseases);
-  }, [foodSubmitted, active, diseases, catalogRevision]);
+    return checkFoodQuery(foodSubmitted, active, diseases, lang);
+  }, [foodSubmitted, active, diseases, catalogRevision, lang]);
 
   const checkFood = () => {
     setFoodSubmitted(food);
-    const findings = checkFoodQuery(food, active, diseases);
+    const findings = checkFoodQuery(food, active, diseases, lang);
     if (soundEnabled) {
       void Speech.speak(findings[0]?.description ?? (lang === 'en' ? 'No matching food warnings found in database.' : 'ยังไม่พบคำเตือนที่ตรงกับข้อมูลในเครื่อง แต่ควรตรวจสอบกับเภสัชกรหากไม่แน่ใจค่ะ'), { language: lang === 'en' ? 'en-US' : 'th-TH', rate: 0.92 });
     }

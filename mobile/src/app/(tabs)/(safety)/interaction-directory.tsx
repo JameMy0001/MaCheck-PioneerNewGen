@@ -48,7 +48,7 @@ export default function InteractionDirectoryScreen() {
   const renderItem = ({ item }: { item: DrugInteraction }) => {
     const drug1 = getMedicine(item.drug1);
     const drug2 = getMedicine(item.drug2);
-    const copy = getInteractionSafetyCopy(item.severity);
+    const copy = getInteractionSafetyCopy(item.severity, lang);
     const severe = item.severity === 'severe';
     const mainName1 = (lang === 'en' ? drug1?.nameEn : drug1?.nameTh) ?? item.drug1;
     const subName1 = (lang === 'en' ? drug1?.nameTh : drug1?.nameEn) ?? item.drug1;

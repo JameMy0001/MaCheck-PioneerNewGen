@@ -35,7 +35,7 @@ export default function AddMedicineScreen() {
     void catalogRevision;
     return searchMedicines(query).slice(0, 12);
   }, [query, catalogRevision]);
-  const findings = medicineId ? checkCandidateMedicine(medicineId, cabinet, allergies) : [];
+  const findings = medicineId ? checkCandidateMedicine(medicineId, cabinet, allergies, lang) : [];
 
   const select = (id: string) => {
     const definition = getMedicine(id);

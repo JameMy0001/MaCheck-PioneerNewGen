@@ -32,8 +32,8 @@ export default function PairCheckerScreen() {
   const [error, setError] = useState('');
   const finding = useMemo(() => {
     void revision;
-    return checkedPair ? checkDrugPair(checkedPair.drugA, checkedPair.drugB) : null;
-  }, [checkedPair, revision]);
+    return checkedPair ? checkDrugPair(checkedPair.drugA, checkedPair.drugB, lang) : null;
+  }, [checkedPair, revision, lang]);
 
   const changeQueryA = (value: string) => {
     setQueryA(value);
