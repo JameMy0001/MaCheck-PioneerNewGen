@@ -97,7 +97,7 @@ def compute_reason_codes(
     late_rate_7d: float,
     severe_interaction: bool,
     worsening_trend: bool
-) -> List[string]:
+) -> List[str]:
     codes = []
     if missed_streak >= 2:
         codes.append(f"MISSED_STREAK_{missed_streak}")
