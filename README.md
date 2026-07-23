@@ -1,24 +1,22 @@
 # MaCheck — Decision-Support App for Caregivers & Medication Safety
 
-**MaCheck** คือระบบสนับสนุนการตัดสินใจ (Decision-Support Application) สำหรับผู้ดูแลและคลินิกชุมชน เพื่อตอบคำถามสำคัญ:
-> *"วันนี้ควรติดตามผู้ป่วยคนใดก่อน และเหตุผลเชิงข้อมูลคืออะไร?"*
+**MaCheck** is an intelligent decision-support application designed for caregivers and community clinics to answer a critical question:
+> *"Which patient should we follow up with first today, and what is the data-driven rationale?"*
 
-ขับเคลื่อนด้วย **Google Cloud Platform (Firebase, GCS, BigQuery, Cloud Run, Gemini Enterprise Agent Platform)** ร่วมกับ **NVIDIA Acceleration (RAPIDS cuDF)**
+Powered by **Google Cloud Platform (Firebase, GCS, BigQuery, Cloud Run, Gemini Enterprise Agent Platform)** and accelerated by **NVIDIA RAPIDS (cuDF)**.
 
 ---
 
 ## 📸 Demo & Screenshots
 
-| หน้าจอ Mobile App (React Native) | หน้าจอ Looker Dashboard (Prototype) | 
+| Mobile App (React Native) | Looker Dashboard (Prototype) | 
 |:---:|:---:|
 | ![MaCheck Mobile App](docs/assets/mobile_app.png) | ![MaCheck Caregiver Dashboard](docs/assets/looker_dashboard.png) |
-| *ตัวอย่างการแจ้งเตือนความเสี่ยงและคำแนะนำจาก Gemini Enterprise* | *ตัวอย่าง Caregiver Priority Queue (จัดอันดับผู้ป่วยที่ต้องติดตามก่อน)* |
-
-*(สามารถอัปเดตลิงก์รูปภาพของจริงทับ placeholder ด้านบนได้เลย)*
+| *Example of risk alerts and AI recommendations from Gemini Enterprise* | *Caregiver Priority Queue (Identifying high-risk patients for immediate follow-up)* |
 
 ---
 
-## 🏛️ สถาปัตยกรรมระบบ (Target Architecture)
+## 🏛️ System Architecture
 
 ```text
 MaCheck Mobile (Expo/RN) 
@@ -32,23 +30,22 @@ Google Cloud Storage (Raw Zone: gs://macheck-analytics-raw)
    ▼
 Cloud Run Job + NVIDIA L4 GPU + RAPIDS/cuDF
    │ 
-   ├──► Google BigQuery (macheck_analytics.*) ──► Looker Enterprise (ปัจจุบันใช้ Looker Studio เป็น Prototype)
+   ├──► Google BigQuery (macheck_analytics.*) ──► Looker Enterprise (Currently prototyped on Looker Studio)
    └──► Firestore Write-back (users/{uid}/riskSummary) ──► Mobile Alert + Gemini Enterprise Agent Platform
 ```
 
 ---
 
-## 📁 โครงสร้างโปรเจกต์
+## 📁 Project Structure
 
-- [`mobile/`](./mobile): แอปพลิเคชันผู้ใช้/ผู้ดูแล (Expo / React Native)
+- [`mobile/`](./mobile): User/Caregiver Application (Expo / React Native)
 - [`functions/`](./functions): Firebase Cloud Functions (TypeScript) — Gemini AI, Export, & Admin tasks
 - [`platform/analytics/`](./platform/analytics): Analytics Pipeline (Python / cuDF / Cloud Run Job with GPU)
-- [`docs/`](./docs): เอกสารสถาปัตยกรรมและแผนการปรับปรุง (`MaCheck-Improvement-Plan-TH.md`)
-- [`archive/legacy-pre-google/`](./archive/legacy-pre-google): โค้ดต้นแบบและระบบเก่าที่ถูกยกเลิก (Supabase / Vercel / NIM)
+- [`docs/`](./docs): Architectural documentation and improvement plans
 
 ---
 
-## 🚀 การเริ่มต้นพัฒนา (Quick Start)
+## 🚀 Quick Start
 
 ### 1. Mobile App
 ```bash
@@ -67,11 +64,9 @@ npm run build
 ```
 
 ### 3. Analytics Pipeline (RAPIDS cuDF)
-> 💡 **Note on Analytics Dataset:** แดชบอร์ดสำหรับผู้ดูแล (Caregiver Dashboard) ใช้ข้อมูลจำลอง (Synthetic Data) ของประวัติการกินยาและยาตีกันกว่า 180,000 รายการ เพื่อสร้าง **Risk Score** แบบผสมผสาน และเพื่อแสดงศักยภาพการประมวลผล Big Data ขั้นสูงของ **NVIDIA RAPIDS (cuDF)** บน Google Cloud
+> 💡 **Note on Analytics Dataset:** The Caregiver Dashboard utilizes a synthetic dataset of over 180,000 dose events and drug interactions to compute a composite **Risk Score**. This showcases the advanced Big Data processing capabilities of **NVIDIA RAPIDS (cuDF)** on Google Cloud.
 ```bash
 cd platform/analytics
 python3 rapids_pipeline.py
 ```
-> 📊 **GPU Acceleration Benchmark:** สามารถดูผลการทดสอบประสิทธิภาพที่พิสูจน์แล้วว่า cuDF บน NVIDIA L4 เร็วกว่า CPU ได้ที่ [Benchmark Report](platform/analytics/benchmark_report.md)
-
-
+> 📊 **GPU Acceleration Benchmark:** View the benchmark report proving cuDF on NVIDIA L4 significantly outperforms CPU pandas here: [Benchmark Report](platform/analytics/benchmark_report.md)
