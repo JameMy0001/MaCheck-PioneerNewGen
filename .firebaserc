@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "macheck-app-dev",
+    "dev": "macheck-app-dev",
+    "prod": "macheck-app-prod"
+  }
+}
