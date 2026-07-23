@@ -205,50 +205,6 @@ export async function generateAIChatReplyLive(
   conversationMode: AgentConversationMode = 'general',
   requestId?: string,
 ): Promise<AgentChatReply> {
-  const { GEMINI_API_KEY, isGeminiConfigured } = require('@/services/google-cloud');
-
-  if (isGeminiConfigured) {
-    try {
-      const systemInstruction = `คุณคือ MaCheck AI Assistant ผู้ช่วยวิเคราะห์และคัดกรองการรับประทานยาอย่างปลอดภัย พัฒนาบน Google Gemini AI Model
-กฎสำคัญ:
-1. ตอบด้วยภาษาไทยที่สุภาพ กระชับ อ่านง่าย เหมาะกับผู้ป่วยและผู้ดูแล
-2. ไม่เปลี่ยนแปลงสั่งยกเลิกยาหลักของแพทย์ ให้เน้นการเตือนความปลอดภัย การตรวจสอบปฏิกิริยาระหว่างยา และการรับประทานตรงเวลา`;
-
-      const contents = history.slice(-6).map((turn) => ({
-        role: turn.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: turn.content }],
-      }));
-      contents.push({ role: 'user', parts: [{ text: userText }] });
-
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          contents,
-          generationConfig: { temperature: 0.3, maxOutputTokens: 800 },
-        }),
-      });
-
-      if (response.ok) {
-        const json = await response.json();
-        const replyText = json.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (replyText) {
-          return {
-            text: `[Google Gemini 2.5 Flash]\n${replyText}`,
-            responseType: 'information',
-            conversationMode,
-            requiresFollowUp: false,
-            executionMode: 'live',
-          };
-        }
-      }
-    } catch (err) {
-      console.warn('[Gemini Direct Chat] Falling back to backend/rules:', err);
-    }
-  }
-
   try {
     const data = await invokeAgentFunction(
       {
@@ -260,16 +216,15 @@ export async function generateAIChatReplyLive(
       { requestId },
     );
     return {
-      text: `[Google Cloud Agent]\n${data.reply || 'รับทราบข้อมูลเรียบร้อยแล้ว'}`,
+      text: data.reply || 'รับทราบข้อมูลเรียบร้อยแล้ว',
       responseType: 'information',
       conversationMode,
       requiresFollowUp: false,
       executionMode: 'live',
     };
   } catch (backendErr) {
-    // Graceful offline fallback
     return {
-      text: `[MaCheck Safety Rule Assistant]\nขอบคุณสำหรับข้อมูลเรื่อง "${userText.slice(0, 50)}" ระบบได้บันทึกไว้ในอุปกรณ์เรียบร้อยแล้ว โปรดทานยาตามเวลาที่แพทย์ระบุอย่างเคร่งครัด`,
+      text: `[ระบบกฎความปลอดภัยออฟไลน์]\nขอบคุณสำหรับข้อมูลเรื่อง "${userText.slice(0, 50)}" โปรดรับประทานยาตามเวลาและคำแนะนำของแพทย์หรือเภสัชกรอย่างเคร่งครัด`,
       responseType: 'information',
       conversationMode,
       requiresFollowUp: false,
