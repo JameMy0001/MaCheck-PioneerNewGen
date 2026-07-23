@@ -1,4 +1,4 @@
-# MaCheck Looker & Looker Studio Visualization Specification
+# MaCheck Looker Enterprise Visualization Specification
 
 > **Target Competition Track:** Data Analytics, Visualization, and Decision Support
 > **Core Decision Support Question:** *"Which patient should the caregiver / clinic follow up with first today, and why?"*
@@ -7,7 +7,7 @@
 
 ## 1. Overview of Looker Architecture
 
-Looker connects directly to **Google BigQuery (`macheck_analytics`)** read-only analytical views and displays real-time patient priority rankings, population adherence trends, and NVIDIA RAPIDS GPU acceleration benchmarks.
+Looker Enterprise (currently prototyped via Looker Studio) connects directly to **Google BigQuery (`macheck_analytics`)** read-only analytical views and displays real-time patient priority rankings, population adherence trends, and NVIDIA RAPIDS GPU acceleration benchmarks.
 
 ```text
 Google Cloud Storage (gs://macheck-analytics-raw/)
@@ -19,7 +19,7 @@ Google BigQuery (macheck_analytics)
         ├── patient_daily_features
         └── acceleration_benchmarks
         ↓
-Looker / Looker Studio Dashboard
+Looker Enterprise Dashboard (Prototyped on Studio)
 ```
 
 ---

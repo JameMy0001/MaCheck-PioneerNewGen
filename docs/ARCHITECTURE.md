@@ -40,8 +40,8 @@
               │
               ▼
 ┌──────────────────────────┐
-│   Looker / Looker Studio  │
-│   Priority Queue Dashboard│
+│   Looker Enterprise       │
+│   (Prototype via Studio)  │
 └──────────────────────────┘
 ```
 
@@ -50,6 +50,6 @@
 ## 🔒 Security & Medical Safety Principles
 
 1. **Deterministic Safety Rules**: All clinical interaction checks (`safety.ts`) and risk scoring (`risk_model.py`) are strictly deterministic.
-2. **Generative AI Guardrails**: Google Gemini AI is restricted to explaining deterministic risk scores and clinical reason codes in Thai. It NEVER prescribes or alters drug dosages.
+2. **Generative AI Guardrails**: Google Gemini Enterprise Agent Platform is restricted to explaining deterministic risk scores and clinical reason codes in Thai. It NEVER prescribes or alters drug dosages.
 3. **De-identification & PHI Protection**: All user IDs are hashed using HMAC-SHA256 before leaving the operational database. No real names, emails, or phone numbers enter GCS or BigQuery.
 4. **App Check & Callable Security**: Firebase Cloud Functions require user authentication and enforce App Check.
