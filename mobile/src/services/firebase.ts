@@ -1,6 +1,6 @@
 /**
- * Firebase / Firestore Configuration Service for MaCheck App
- * Replaces Supabase with Google Cloud Firebase Firestore 100%
+ * Firebase Service Client for MaCheck App
+ * Provides typed Firestore and Auth interfaces with emulator support
  */
 
 import Constants from 'expo-constants';
@@ -8,100 +8,88 @@ import Constants from 'expo-constants';
 const extra = Constants.expoConfig?.extra ?? {};
 
 export const FIREBASE_CONFIG = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || extra.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyDemoKeyForMaCheckHackathon',
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || extra.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || 'gen-lang-client-0740402744.firebaseapp.com',
-  projectId: process.env.EXPO_PUBLIC_GCP_PROJECT_ID || extra.EXPO_PUBLIC_GCP_PROJECT_ID || 'gen-lang-client-0740402744',
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || extra.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || 'gen-lang-client-0740402744.appspot.com',
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || extra.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '1234567890',
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || extra.EXPO_PUBLIC_FIREBASE_APP_ID || '1:1234567890:web:abcdef123456',
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || extra.EXPO_PUBLIC_FIREBASE_API_KEY || '',
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || extra.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
+  projectId: process.env.EXPO_PUBLIC_GCP_PROJECT_ID || extra.EXPO_PUBLIC_GCP_PROJECT_ID || 'macheck-app-dev',
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || extra.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || extra.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || extra.EXPO_PUBLIC_FIREBASE_APP_ID || '',
 };
 
-export const isFirebaseConfigured = Boolean(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId);
+export const USE_EMULATOR = Boolean(
+  process.env.EXPO_PUBLIC_USE_EMULATORS === 'true' || __DEV__
+);
 
-export interface FirestoreMedicationDoc {
-  id?: string;
-  code: string;
+export const EMULATOR_HOST = process.env.EXPO_PUBLIC_EMULATOR_HOST || '127.0.0.1';
+
+export const isFirebaseConfigured = Boolean(FIREBASE_CONFIG.projectId);
+
+export interface UserProfileDoc {
+  uid: string;
+  handle?: string;
+  displayName?: string;
+  role: 'patient' | 'caregiver';
+  diseases: string[];
+  allergies: any[];
+  weightKg?: number;
+  fontScale: 'normal' | 'large' | 'xlarge';
+  soundEnabled: boolean;
+  emergencyContact?: { name: string; phone: string };
+  consentVersion: string;
+  privacyPolicyVersion: string;
+  createdAt: string;
+  updatedAt: string;
+  schemaVersion: number;
+}
+
+export interface MedicationDoc {
+  id: string;
+  medicationCode?: string;
+  customName?: string;
+  tabletCount?: number;
+  dosageMg?: number;
+  dosageText?: string;
+  schedules: string[];
+  mealTiming: 'before' | 'after' | 'any';
+  status: 'active' | 'stopped';
+  sourceApp: 'macheck';
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+  schemaVersion: number;
+}
+
+export interface DoseEventDoc {
+  id: string;
+  medicationClientId: string;
+  slot: string;
+  eventDate: string;
+  taken: boolean;
+  occurredAt: string;
+  sourceApp: 'macheck';
+  idempotencyKey: string;
+}
+
+export interface ClinicalMedicationDoc {
+  medicationCode: string;
   nameEn: string;
   nameTh: string;
   category: string;
   commonDosagesMg: number[];
   descriptionTh: string;
   active: boolean;
-  status: string;
+  releaseId: string;
+  reviewedAt: string;
 }
 
-export interface FirestoreDrugInteractionDoc {
-  id?: string;
+export interface ClinicalInteractionDoc {
+  canonicalPairId: string;
   drug1: string;
   drug2: string;
-  severity: 'mild' | 'moderate' | 'severe';
+  severity: 'moderate' | 'severe';
+  titleTh: string;
   descriptionTh: string;
-  safetyWarning: string;
-}
-
-/**
- * REST API client helper for Firebase Firestore (works across Expo Web, iOS, and Android without native binary dependencies)
- */
-const FIRESTORE_BASE_URL = `https://firestore.googleapis.com/v1/projects/${FIREBASE_CONFIG.projectId}/databases/(default)/documents`;
-
-export async function fetchFirestoreCollection<T>(collectionName: string): Promise<T[]> {
-  try {
-    const url = `${FIRESTORE_BASE_URL}/${collectionName}?key=${FIREBASE_CONFIG.apiKey}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.warn(`[Firestore Fetch Note] ${collectionName} endpoint returned status ${response.status}`);
-      return [];
-    }
-    const json = await response.json();
-    const documents = json.documents || [];
-    
-    return documents.map((doc: any) => {
-      const fields = doc.fields || {};
-      const obj: any = { id: doc.name.split('/').pop() };
-      for (const [key, val] of Object.entries<any>(fields)) {
-        if ('stringValue' in val) obj[key] = val.stringValue;
-        else if ('integerValue' in val) obj[key] = Number(val.integerValue);
-        else if ('doubleValue' in val) obj[key] = Number(val.doubleValue);
-        else if ('booleanValue' in val) obj[key] = val.booleanValue;
-        else if ('arrayValue' in val) {
-          obj[key] = (val.arrayValue.values || []).map((v: any) => v.stringValue || v.integerValue || v);
-        }
-      }
-      return obj as T;
-    });
-  } catch (error) {
-    console.warn(`[Firestore REST] Network fallback for ${collectionName}:`, error);
-    return [];
-  }
-}
-
-export async function setFirestoreDocument(collectionName: string, docId: string, data: Record<string, any>) {
-  try {
-    const url = `${FIRESTORE_BASE_URL}/${collectionName}/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
-    const fields: Record<string, any> = {};
-
-    for (const [key, val] of Object.entries(data)) {
-      if (typeof val === 'string') fields[key] = { stringValue: val };
-      else if (typeof val === 'number') fields[key] = { doubleValue: val };
-      else if (typeof val === 'boolean') fields[key] = { booleanValue: val };
-      else if (Array.isArray(val)) {
-        fields[key] = {
-          arrayValue: {
-            values: val.map((item) => ({ stringValue: String(item) })),
-          },
-        };
-      }
-    }
-
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields }),
-    });
-
-    return response.ok;
-  } catch (error) {
-    console.warn('[Firestore Set Document Error]:', error);
-    return false;
-  }
+  adviceTh: string;
+  releaseId: string;
+  reviewedAt: string;
 }

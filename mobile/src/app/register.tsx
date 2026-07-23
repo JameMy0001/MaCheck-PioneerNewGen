@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Pressable, ScrollView, Text, View } from 'react-n
 
 import { Field, PrimaryButton, SectionCard } from '@/components/ui';
 import { colors } from '@/constants/theme';
-import { loginWithUsername, recoverWithCode, registerWithUsername } from '@/services/auth';
+import { signInAnonymously, signInWithCredentials } from '@/services/auth';
 import { useAppStore } from '@/store/use-app-store';
 
 type Mode = 'register' | 'login' | 'recover';
@@ -43,15 +43,11 @@ export default function RegisterScreen() {
     setBusy(true);
     setError('');
     try {
-      const result = mode === 'register'
-        ? await registerWithUsername(handle, password)
-        : mode === 'login'
-          ? await loginWithUsername(handle, password)
-          : await recoverWithCode(handle, recoveryCode, password);
-      register({ username: result.username, displayName: result.username, role: 'patient' });
+      const uid = `user_${handle}_${Date.now()}`;
+      const session = await signInWithCredentials(uid, undefined, handle, handle);
+      register({ username: session.displayName || handle, displayName: session.displayName || handle, role: 'patient' });
       setAuthState(true, true);
-      if (result.recovery_code) setIssuedRecoveryCode(result.recovery_code);
-      else router.replace('/home');
+      router.replace('/home');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'เชื่อมต่อระบบบัญชีไม่สำเร็จ');
     } finally {

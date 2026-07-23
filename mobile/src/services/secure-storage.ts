@@ -73,3 +73,16 @@ export const secureStateStorage = {
     await AsyncStorage.removeItem(key);
   },
 };
+
+export async function getSecureItem(key: string): Promise<string | null> {
+  return secureStateStorage.getItem(key);
+}
+
+export async function saveSecureItem(key: string, value: string): Promise<void> {
+  return secureStateStorage.setItem(key, value);
+}
+
+export async function deleteSecureItem(key: string): Promise<void> {
+  return secureStateStorage.removeItem(key);
+}
+
