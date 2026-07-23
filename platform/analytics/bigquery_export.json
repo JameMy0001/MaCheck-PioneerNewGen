@@ -2,9 +2,9 @@
   "model_version": "v1.0",
   "total_records_processed": 180000,
   "total_patients_analyzed": 1000,
-  "cpu_wall_time_ms": 130.84,
-  "gpu_wall_time_ms": 112.88,
-  "speedup_factor": 1.16,
+  "cpu_wall_time_ms": 113.98,
+  "gpu_wall_time_ms": 107.04,
+  "speedup_factor": 1.06,
   "acceleration_mode": "Pandas CPU (cuDF Fallback Mode)",
   "top_priority_queue": [
     {
@@ -169,6 +169,804 @@
       "reason_codes": [
         "MISSED_STREAK_3",
         "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_1e5797f4c0f2",
+      "total_events": 180,
+      "skipped_events": 75,
+      "late_events": 29,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.4167,
+      "adherence_7d": 0.5833,
+      "risk_score": 52.0,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_739db4c50391",
+      "total_events": 180,
+      "skipped_events": 75,
+      "late_events": 28,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.4167,
+      "adherence_7d": 0.5833,
+      "risk_score": 51.92,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_625e7f582858",
+      "total_events": 180,
+      "skipped_events": 83,
+      "late_events": 25,
+      "missed_streak": 1,
+      "missed_dose_rate_7d": 0.4611,
+      "adherence_7d": 0.5389,
+      "risk_score": 51.56,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_ac46b1766b65",
+      "total_events": 180,
+      "skipped_events": 74,
+      "late_events": 25,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.4111,
+      "adherence_7d": 0.5889,
+      "risk_score": 51.47,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_886a79d3b79b",
+      "total_events": 180,
+      "skipped_events": 70,
+      "late_events": 34,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.3889,
+      "adherence_7d": 0.6111,
+      "risk_score": 51.45,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_0d24332a0b19",
+      "total_events": 180,
+      "skipped_events": 71,
+      "late_events": 30,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.3944,
+      "adherence_7d": 0.6056,
+      "risk_score": 51.3,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_3dc9264f696b",
+      "total_events": 180,
+      "skipped_events": 82,
+      "late_events": 24,
+      "missed_streak": 1,
+      "missed_dose_rate_7d": 0.4556,
+      "adherence_7d": 0.5444,
+      "risk_score": 51.28,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_f8df6d0e6654",
+      "total_events": 180,
+      "skipped_events": 70,
+      "late_events": 32,
+      "missed_streak": 5,
+      "missed_dose_rate_7d": 0.3889,
+      "adherence_7d": 0.6111,
+      "risk_score": 51.28,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_5",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_a35ad7d968f5",
+      "total_events": 180,
+      "skipped_events": 70,
+      "late_events": 31,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.3889,
+      "adherence_7d": 0.6111,
+      "risk_score": 51.19,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_bec3428132cb",
+      "total_events": 180,
+      "skipped_events": 71,
+      "late_events": 26,
+      "missed_streak": 4,
+      "missed_dose_rate_7d": 0.3944,
+      "adherence_7d": 0.6056,
+      "risk_score": 50.97,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_4",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_da651fe8aa18",
+      "total_events": 180,
+      "skipped_events": 71,
+      "late_events": 25,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.3944,
+      "adherence_7d": 0.6056,
+      "risk_score": 50.89,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_abce9896eea1",
+      "total_events": 180,
+      "skipped_events": 73,
+      "late_events": 20,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.4056,
+      "adherence_7d": 0.5944,
+      "risk_score": 50.86,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_4850b1680ea5",
+      "total_events": 180,
+      "skipped_events": 73,
+      "late_events": 20,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.4056,
+      "adherence_7d": 0.5944,
+      "risk_score": 50.86,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_e2c7ce19093f",
+      "total_events": 180,
+      "skipped_events": 68,
+      "late_events": 29,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.3778,
+      "adherence_7d": 0.6222,
+      "risk_score": 50.64,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_d4ef78007372",
+      "total_events": 180,
+      "skipped_events": 68,
+      "late_events": 28,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.3778,
+      "adherence_7d": 0.6222,
+      "risk_score": 50.56,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_16270bd02cb7",
+      "total_events": 180,
+      "skipped_events": 75,
+      "late_events": 28,
+      "missed_streak": 1,
+      "missed_dose_rate_7d": 0.4167,
+      "adherence_7d": 0.5833,
+      "risk_score": 50.25,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_5c0f0e3675c5",
+      "total_events": 180,
+      "skipped_events": 74,
+      "late_events": 27,
+      "missed_streak": 1,
+      "missed_dose_rate_7d": 0.4111,
+      "adherence_7d": 0.5889,
+      "risk_score": 49.97,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_34de592e322e",
+      "total_events": 180,
+      "skipped_events": 75,
+      "late_events": 24,
+      "missed_streak": 1,
+      "missed_dose_rate_7d": 0.4167,
+      "adherence_7d": 0.5833,
+      "risk_score": 49.92,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_1c06856e3f0c",
+      "total_events": 180,
+      "skipped_events": 69,
+      "late_events": 18,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.3833,
+      "adherence_7d": 0.6167,
+      "risk_score": 49.92,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_dcb7c6ef1773",
+      "total_events": 180,
+      "skipped_events": 74,
+      "late_events": 22,
+      "missed_streak": 1,
+      "missed_dose_rate_7d": 0.4111,
+      "adherence_7d": 0.5889,
+      "risk_score": 49.55,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_6de33759b525",
+      "total_events": 180,
+      "skipped_events": 69,
+      "late_events": 33,
+      "missed_streak": 1,
+      "missed_dose_rate_7d": 0.3833,
+      "adherence_7d": 0.6167,
+      "risk_score": 49.5,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_545ac8c20727",
+      "total_events": 180,
+      "skipped_events": 71,
+      "late_events": 26,
+      "missed_streak": 1,
+      "missed_dose_rate_7d": 0.3944,
+      "adherence_7d": 0.6056,
+      "risk_score": 49.3,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_ca4086f5fd00",
+      "total_events": 180,
+      "skipped_events": 65,
+      "late_events": 26,
+      "missed_streak": 1,
+      "missed_dose_rate_7d": 0.3611,
+      "adherence_7d": 0.6389,
+      "risk_score": 48.14,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_c62f502f1d66",
+      "total_events": 180,
+      "skipped_events": 63,
+      "late_events": 26,
+      "missed_streak": 1,
+      "missed_dose_rate_7d": 0.35,
+      "adherence_7d": 0.65,
+      "risk_score": 47.75,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_3296d47cd330",
+      "total_events": 180,
+      "skipped_events": 32,
+      "late_events": 14,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.1778,
+      "adherence_7d": 0.8222,
+      "risk_score": 47.39,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "SEVERE_INTERACTION_REVIEW"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_4642b5c28e17",
+      "total_events": 180,
+      "skipped_events": 87,
+      "late_events": 30,
+      "missed_streak": 2,
+      "missed_dose_rate_7d": 0.4833,
+      "adherence_7d": 0.5167,
+      "risk_score": 46.08,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_2",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_8233d4872000",
+      "total_events": 180,
+      "skipped_events": 49,
+      "late_events": 14,
+      "missed_streak": 3,
+      "missed_dose_rate_7d": 0.2722,
+      "adherence_7d": 0.7278,
+      "risk_score": 45.69,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_3",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_41898d7b0fd5",
+      "total_events": 180,
+      "skipped_events": 82,
+      "late_events": 31,
+      "missed_streak": 2,
+      "missed_dose_rate_7d": 0.4556,
+      "adherence_7d": 0.5444,
+      "risk_score": 45.2,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_2",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_85b4444d6087",
+      "total_events": 180,
+      "skipped_events": 73,
+      "late_events": 35,
+      "missed_streak": 2,
+      "missed_dose_rate_7d": 0.4056,
+      "adherence_7d": 0.5944,
+      "risk_score": 43.78,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_2",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_12478f312e01",
+      "total_events": 180,
+      "skipped_events": 74,
+      "late_events": 28,
+      "missed_streak": 2,
+      "missed_dose_rate_7d": 0.4111,
+      "adherence_7d": 0.5889,
+      "risk_score": 43.39,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_2",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_1e4e96117fd5",
+      "total_events": 180,
+      "skipped_events": 72,
+      "late_events": 28,
+      "missed_streak": 2,
+      "missed_dose_rate_7d": 0.4,
+      "adherence_7d": 0.6,
+      "risk_score": 43.0,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_2",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_d2352d0e8a45",
+      "total_events": 180,
+      "skipped_events": 81,
+      "late_events": 26,
+      "missed_streak": 0,
+      "missed_dose_rate_7d": 0.45,
+      "adherence_7d": 0.55,
+      "risk_score": 42.92,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_fc7aeb71d315",
+      "total_events": 180,
+      "skipped_events": 68,
+      "late_events": 34,
+      "missed_streak": 2,
+      "missed_dose_rate_7d": 0.3778,
+      "adherence_7d": 0.6222,
+      "risk_score": 42.72,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_2",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_06beb4493716",
+      "total_events": 180,
+      "skipped_events": 78,
+      "late_events": 30,
+      "missed_streak": 0,
+      "missed_dose_rate_7d": 0.4333,
+      "adherence_7d": 0.5667,
+      "risk_score": 42.67,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_6f2b1cf27261",
+      "total_events": 180,
+      "skipped_events": 69,
+      "late_events": 31,
+      "missed_streak": 2,
+      "missed_dose_rate_7d": 0.3833,
+      "adherence_7d": 0.6167,
+      "risk_score": 42.67,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_2",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_ebc2dbbe701b",
+      "total_events": 180,
+      "skipped_events": 68,
+      "late_events": 32,
+      "missed_streak": 2,
+      "missed_dose_rate_7d": 0.3778,
+      "adherence_7d": 0.6222,
+      "risk_score": 42.56,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_2",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_f657e8c06d69",
+      "total_events": 180,
+      "skipped_events": 70,
+      "late_events": 27,
+      "missed_streak": 2,
+      "missed_dose_rate_7d": 0.3889,
+      "adherence_7d": 0.6111,
+      "risk_score": 42.53,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_2",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_cacd6ff1aadb",
+      "total_events": 180,
+      "skipped_events": 77,
+      "late_events": 30,
+      "missed_streak": 0,
+      "missed_dose_rate_7d": 0.4278,
+      "adherence_7d": 0.5722,
+      "risk_score": 42.47,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_498cd901c325",
+      "total_events": 180,
+      "skipped_events": 79,
+      "late_events": 25,
+      "missed_streak": 0,
+      "missed_dose_rate_7d": 0.4389,
+      "adherence_7d": 0.5611,
+      "risk_score": 42.45,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_8c0d57cdb205",
+      "total_events": 180,
+      "skipped_events": 71,
+      "late_events": 23,
+      "missed_streak": 2,
+      "missed_dose_rate_7d": 0.3944,
+      "adherence_7d": 0.6056,
+      "risk_score": 42.39,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_2",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_35dc354138bf",
+      "total_events": 180,
+      "skipped_events": 80,
+      "late_events": 22,
+      "missed_streak": 0,
+      "missed_dose_rate_7d": 0.4444,
+      "adherence_7d": 0.5556,
+      "risk_score": 42.39,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_b0de63e17679",
+      "total_events": 180,
+      "skipped_events": 66,
+      "late_events": 34,
+      "missed_streak": 2,
+      "missed_dose_rate_7d": 0.3667,
+      "adherence_7d": 0.6333,
+      "risk_score": 42.33,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_2",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_bf3c5bda7dc8",
+      "total_events": 180,
+      "skipped_events": 75,
+      "late_events": 32,
+      "missed_streak": 0,
+      "missed_dose_rate_7d": 0.4167,
+      "adherence_7d": 0.5833,
+      "risk_score": 42.25,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_4239c33149de",
+      "total_events": 180,
+      "skipped_events": 75,
+      "late_events": 31,
+      "missed_streak": 0,
+      "missed_dose_rate_7d": 0.4167,
+      "adherence_7d": 0.5833,
+      "risk_score": 42.17,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_84453ac82067",
+      "total_events": 180,
+      "skipped_events": 68,
+      "late_events": 26,
+      "missed_streak": 2,
+      "missed_dose_rate_7d": 0.3778,
+      "adherence_7d": 0.6222,
+      "risk_score": 42.06,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_2",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_de7dcf9048ca",
+      "total_events": 180,
+      "skipped_events": 74,
+      "late_events": 28,
+      "missed_streak": 0,
+      "missed_dose_rate_7d": 0.4111,
+      "adherence_7d": 0.5889,
+      "risk_score": 41.72,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_2de666a41db8",
+      "total_events": 180,
+      "skipped_events": 70,
+      "late_events": 31,
+      "missed_streak": 0,
+      "missed_dose_rate_7d": 0.3889,
+      "adherence_7d": 0.6111,
+      "risk_score": 41.19,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_f6f4bec427ce",
+      "total_events": 180,
+      "skipped_events": 63,
+      "late_events": 26,
+      "missed_streak": 2,
+      "missed_dose_rate_7d": 0.35,
+      "adherence_7d": 0.65,
+      "risk_score": 41.08,
+      "priority_tier": "high",
+      "reason_codes": [
+        "MISSED_STREAK_2",
+        "ADHERENCE_7D_BELOW_0_70",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_0649c5ad7177",
+      "total_events": 180,
+      "skipped_events": 72,
+      "late_events": 24,
+      "missed_streak": 0,
+      "missed_dose_rate_7d": 0.4,
+      "adherence_7d": 0.6,
+      "risk_score": 41.0,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
+        "WORSENING_TREND"
+      ]
+    },
+    {
+      "analytics_subject_id": "SUBJ_cdc2aef7e7d1",
+      "total_events": 180,
+      "skipped_events": 71,
+      "late_events": 26,
+      "missed_streak": 0,
+      "missed_dose_rate_7d": 0.3944,
+      "adherence_7d": 0.6056,
+      "risk_score": 40.97,
+      "priority_tier": "high",
+      "reason_codes": [
+        "ADHERENCE_7D_BELOW_0_70",
+        "SEVERE_INTERACTION_REVIEW",
         "WORSENING_TREND"
       ]
     }

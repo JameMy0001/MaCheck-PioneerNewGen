@@ -323,7 +323,7 @@ def run_cpu_vs_gpu_benchmark(num_patients: int = 1000) -> Dict[str, Any]:
         "gpu_wall_time_ms": round(gpu_duration * 1000, 2),
         "speedup_factor": speedup,
         "acceleration_mode": acceleration_mode,
-        "top_priority_queue": gpu_results[:10]
+        "top_priority_queue": gpu_results[:60]
     }
 
 

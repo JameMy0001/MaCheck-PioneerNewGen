@@ -11,7 +11,7 @@
 
 | หน้าจอ Mobile App (React Native) | หน้าจอ Looker Dashboard (Prototype) | 
 |:---:|:---:|
-| ![Mobile App Placeholder](https://placehold.co/300x600?text=Mobile+App+UI) | ![Looker Dashboard Placeholder](https://placehold.co/800x600?text=Looker+Dashboard) |
+| ![Mobile App Placeholder](https://placehold.co/300x600?text=Mobile+App+UI) | ![MaCheck Caregiver Dashboard](docs/assets/looker_dashboard.png) |
 | *ตัวอย่างการแจ้งเตือนความเสี่ยงและคำแนะนำจาก Gemini Enterprise* | *ตัวอย่าง Caregiver Priority Queue (จัดอันดับผู้ป่วยที่ต้องติดตามก่อน)* |
 
 *(สามารถอัปเดตลิงก์รูปภาพของจริงทับ placeholder ด้านบนได้เลย)*
@@ -67,9 +67,11 @@ npm run build
 ```
 
 ### 3. Analytics Pipeline (RAPIDS cuDF)
+> 💡 **Note on Analytics Dataset:** แดชบอร์ดสำหรับผู้ดูแล (Caregiver Dashboard) ใช้ข้อมูลจำลอง (Synthetic Data) ของประวัติการกินยาและยาตีกันกว่า 180,000 รายการ เพื่อสร้าง **Risk Score** แบบผสมผสาน และเพื่อแสดงศักยภาพการประมวลผล Big Data ขั้นสูงของ **NVIDIA RAPIDS (cuDF)** บน Google Cloud
 ```bash
 cd platform/analytics
 python3 rapids_pipeline.py
 ```
 > 📊 **GPU Acceleration Benchmark:** สามารถดูผลการทดสอบประสิทธิภาพที่พิสูจน์แล้วว่า cuDF บน NVIDIA L4 เร็วกว่า CPU ได้ที่ [Benchmark Report](platform/analytics/benchmark_report.md)
+
 
