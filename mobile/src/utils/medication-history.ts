@@ -96,7 +96,7 @@ export function formatMedicationHistoryShare(sections: MedicationHistorySection[
     ...section.data.map((item) => `• ${slots[item.slot].label} ${item.medicineName} ${item.dose} (${mealTimingLabel(item.mealTiming)})`),
     '',
   ]);
-  return [`สรุปประวัติการทานยา YaCheck ย้อนหลัง ${days} วัน`, 'แสดงเฉพาะรายการที่ผู้ใช้กดบันทึกว่า “ทานแล้ว”', '', ...lines].join('\n').trim();
+  return [`สรุปประวัติการทานยา MaCheck ย้อนหลัง ${days} วัน`, 'แสดงเฉพาะรายการที่ผู้ใช้กดบันทึกว่า “ทานแล้ว”', '', ...lines].join('\n').trim();
 }
 
 export function historyMealTimingLabel(value: CabinetMedicine['mealTiming']) {

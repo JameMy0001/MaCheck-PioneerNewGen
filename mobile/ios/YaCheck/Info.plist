@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>YaCheck</string>
+    <string>MaCheck</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -27,14 +27,14 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>yacheck</string>
-          <string>com.yacheck.app</string>
+          <string>macheck</string>
+          <string>com.macheck.app</string>
         </array>
       </dict>
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>exp+yacheck</string>
+          <string>exp+macheck</string>
         </array>
       </dict>
     </array>
@@ -58,7 +58,7 @@
       <string>_expo._tcp</string>
     </array>
     <key>NSCameraUsageDescription</key>
-    <string>อนุญาตให้ YaCheck ใช้กล้องเพื่อสแกนฉลากและบาร์โค้ดยา</string>
+    <string>อนุญาตให้ MaCheck ใช้กล้องเพื่อสแกนฉลากและบาร์โค้ดยา</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
     <key>NSLocalNetworkUsageDescription</key>

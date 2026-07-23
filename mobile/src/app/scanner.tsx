@@ -34,7 +34,7 @@ export default function ScannerScreen() {
     <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }}>
       {!permission.granted ? (
         <SectionCard title="ต้องใช้สิทธิ์กล้อง">
-          <Text selectable style={{ color: colors.muted, fontSize: 16 * multiplier, lineHeight: 24 }}>YaCheck ใช้กล้องเฉพาะตอนสแกนฉลากหรือ barcode ภาพไม่ถูกอัปโหลดโดยอัตโนมัติ</Text>
+          <Text selectable style={{ color: colors.muted, fontSize: 16 * multiplier, lineHeight: 24 }}>MaCheck ใช้กล้องเฉพาะตอนสแกนฉลากหรือ barcode ภาพไม่ถูกอัปโหลดโดยอัตโนมัติ</Text>
           <PrimaryButton label="อนุญาตให้ใช้กล้อง" onPress={() => void requestPermission()} />
         </SectionCard>
       ) : (

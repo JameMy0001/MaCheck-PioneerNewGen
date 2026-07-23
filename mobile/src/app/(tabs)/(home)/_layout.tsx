@@ -9,7 +9,7 @@ export default function HomeLayout() {
       <Stack.Screen
         name="home"
         options={{
-          title: 'YaCheck',
+          title: 'MaCheck',
           headerBackVisible: false,
           headerRight: () => <CaregiverBellButton />,
         }}

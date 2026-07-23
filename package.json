@@ -1,11 +1,11 @@
 {
-  "name": "yacheck-prototype",
+  "name": "macheck-prototype",
   "version": "1.0.0",
-  "description": "YaCheck Web Prototype & Admin Console",
+  "description": "MaCheck Web Prototype",
   "type": "module",
   "main": "index.html",
   "scripts": {
-    "build": "cd admin && npm install && npm run build"
+    "start": "npx serve ."
   },
   "dependencies": {
     "@langchain/core": "^0.2.0",

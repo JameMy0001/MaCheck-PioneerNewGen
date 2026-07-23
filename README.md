@@ -1,23 +1,15 @@
-# YaCheck Project
+# MaCheck Project (Google Cloud + NVIDIA Stack)
 
-Repository นี้มีสองส่วน:
+แอปพลิเคชันวิเคราะห์ข้อมูลการรับประทานยาและสนับสนุนการตัดสินใจด้านสุขภาพ (Decision-Support Application) พัฒนาบน **Google Cloud & NVIDIA Acceleration Layer**
 
-- เว็บต้นแบบเดิมอยู่ที่ root (`index.html`, `css/`, `js/`) เก็บไว้เป็นเอกสารอ้างอิงและเปรียบเทียบ feature
-- แอป Expo/React Native อยู่ที่ [`mobile/`](./mobile) และเป็นฐานพัฒนาหลักต่อจากนี้
+- **Mobile App (Expo / React Native)**: อยู่ที่ [`mobile/`](./mobile)
+- **NVIDIA RAPIDS GPU Microservice**: อยู่ที่ [`platform/analytics/`](./platform/analytics)
 
-## เปิดแอป
+## การใช้งาน
 
 ```bash
 cd mobile
 npm install
 npm run typecheck
-npm run lint
 npm start
 ```
-
-ใช้ Expo Go บนอุปกรณ์จริงเพื่อทดสอบกล้องและ local notifications ดูรายละเอียดใน [`mobile/README.md`](./mobile/README.md)
-
-## สถานะ
-
-Native local-first MVP ทำงานแล้วและ build bundle สำหรับ Android/iOS ได้ แต่ยังไม่ควรเผยแพร่เป็นผลิตภัณฑ์ทางการแพทย์ก่อนปิดรายการใน [`mobile/PRODUCTION_CHECKLIST.md`](./mobile/PRODUCTION_CHECKLIST.md)
-

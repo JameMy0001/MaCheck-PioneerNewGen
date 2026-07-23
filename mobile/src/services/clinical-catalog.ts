@@ -2,11 +2,11 @@ import 'expo-sqlite/localStorage/install';
 
 import { foodClashes, interactions, medicines } from '@/data/medicine-db';
 import { getInteractionSafetyCopy } from '@/constants/interaction-safety';
-import { supabase } from '@/services/supabase';
+import { fetchFirestoreCollection } from '@/services/firebase';
 import { useClinicalCatalogStore, type ClinicalCatalogSource } from '@/store/use-clinical-catalog-store';
 import type { DrugInteraction, FoodClash, MedicineDefinition } from '@/types/models';
 
-const CATALOG_CACHE_KEY = 'yacheck-clinical-catalog-v1';
+const CATALOG_CACHE_KEY = 'macheck-clinical-catalog-v1';
 
 interface ClinicalCatalogCache {
   version: 1;
@@ -55,57 +55,55 @@ export async function refreshClinicalCatalog() {
   }
 
   try {
-    const [medicinesResult, interactionsResult, foodResult] = await Promise.all([
-      supabase.from('medications').select('code,name_en,name_th,category,common_dosages_mg,description_th,dataset_version,reviewed_at').eq('active', true).eq('status', 'published'),
-      supabase.from('drug_interactions').select('id,drug_1,drug_2,severity,dataset_version,reviewed_at').eq('status', 'published'),
-      supabase.from('food_interactions').select('code,food_th,keywords,medicine_codes,disease_codes,severity,description_th,dataset_version,reviewed_at').eq('status', 'published'),
+    const [medicinesData, interactionsData, foodData] = await Promise.all([
+      fetchFirestoreCollection<any>('medications'),
+      fetchFirestoreCollection<any>('drug_interactions'),
+      fetchFirestoreCollection<any>('food_interactions'),
     ]);
 
-    if (medicinesResult.error) throw medicinesResult.error;
-    if (interactionsResult.error) throw interactionsResult.error;
-    if (foodResult.error) throw foodResult.error;
-    if (!medicinesResult.data.length) throw new Error('ไม่พบรายการยาที่เผยแพร่แล้วในฐานข้อมูลกลาง');
+    if (medicinesData.length > 0) {
+      const remoteMedicines: MedicineDefinition[] = medicinesData.map((item) => ({
+        id: item.code || item.id,
+        nameEn: item.nameEn || item.name_en || '',
+        nameTh: item.nameTh || item.name_th || '',
+        category: item.category || '',
+        dosages: ((item.commonDosagesMg || item.common_dosages_mg) ?? []).map(Number),
+        description: item.descriptionTh || item.description_th || '',
+      }));
 
-    const remoteMedicines: MedicineDefinition[] = medicinesResult.data.map((item) => ({
-      id: item.code,
-      nameEn: item.name_en,
-      nameTh: item.name_th,
-      category: item.category,
-      dosages: (item.common_dosages_mg ?? []).map(Number),
-      description: item.description_th,
-    }));
-    const remoteInteractions: DrugInteraction[] = interactionsResult.data.map((item) => ({
-      id: String(item.id),
-      drug1: item.drug_1,
-      drug2: item.drug_2,
-      severity: item.severity,
-      datasetVersion: item.dataset_version,
-      reviewedAt: item.reviewed_at,
-      ...getInteractionSafetyCopy(item.severity),
-    }));
-    const remoteFoodClashes: FoodClash[] = foodResult.data.map((item) => ({
-      id: item.code,
-      food: item.food_th,
-      keywords: item.keywords ?? [],
-      medicineIds: item.medicine_codes ?? [],
-      diseases: item.disease_codes ?? [],
-      severity: item.severity,
-      description: item.description_th,
-    }));
+      const remoteInteractions: DrugInteraction[] = interactionsData.map((item) => ({
+        id: String(item.id || item.code),
+        drug1: item.drug1 || item.drug_1,
+        drug2: item.drug2 || item.drug_2,
+        severity: item.severity || 'moderate',
+        ...getInteractionSafetyCopy(item.severity || 'moderate'),
+      }));
 
-    const nextCatalog: ClinicalCatalogCache = {
-      version: 1,
-      cachedAt: new Date().toISOString(),
-      medicines: remoteMedicines,
-      interactions: remoteInteractions,
-      foodClashes: remoteFoodClashes,
-    };
-    applyCatalog(nextCatalog);
-    saveCachedCatalog(nextCatalog);
-    useClinicalCatalogStore.getState().applySource('fresh', nextCatalog.cachedAt);
+      const remoteFoodClashes: FoodClash[] = foodData.map((item) => ({
+        id: item.code || item.id,
+        food: item.foodTh || item.food_th || '',
+        keywords: item.keywords ?? [],
+        medicineIds: (item.medicineCodes || item.medicine_codes) ?? [],
+        diseases: (item.diseaseCodes || item.disease_codes) ?? [],
+        severity: item.severity || 'moderate',
+        description: item.descriptionTh || item.description_th || '',
+      }));
+
+      const nextCatalog: ClinicalCatalogCache = {
+        version: 1,
+        cachedAt: new Date().toISOString(),
+        medicines: remoteMedicines,
+        interactions: remoteInteractions,
+        foodClashes: remoteFoodClashes,
+      };
+      applyCatalog(nextCatalog);
+      saveCachedCatalog(nextCatalog);
+      useClinicalCatalogStore.getState().applySource('fresh', nextCatalog.cachedAt);
+    } else {
+      useClinicalCatalogStore.getState().applySource(fallbackSource, new Date().toISOString());
+    }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'โหลดฐานข้อมูลกลางไม่สำเร็จ';
+    const message = error instanceof Error ? error.message : 'โหลดฐานข้อมูล Firebase ไม่สำเร็จ';
     useClinicalCatalogStore.getState().failRefresh(fallbackSource, message);
-    throw error;
   }
 }

@@ -6,7 +6,7 @@ const CHUNK_SIZE = 1800;
 const serverStorage = new Map<string, string>();
 
 function nativeKey(key: string) {
-  return `yacheck.secure.${key.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+  return `macheck.secure.${key.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 }
 
 function webStorage() {

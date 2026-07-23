@@ -1,0 +1,109 @@
+{
+  "migratedAt": "2026-07-23T05:59:44.426Z",
+  "gcpProject": "gen-lang-client-0740402744",
+  "collections": {
+    "medications": [
+      {
+        "code": "paracetamol",
+        "nameEn": "Paracetamol",
+        "nameTh": "พาราเซตามอล",
+        "category": "Analgesic",
+        "commonDosagesMg": [
+          500
+        ],
+        "descriptionTh": "บรรเทาอาการปวด ลดไข้",
+        "active": true,
+        "status": "published"
+      },
+      {
+        "code": "amlodipine",
+        "nameEn": "Amlodipine",
+        "nameTh": "แอมโลดิพีน",
+        "category": "Antihypertensive",
+        "commonDosagesMg": [
+          5,
+          10
+        ],
+        "descriptionTh": "รักษาโรคความดันโลหิตสูง",
+        "active": true,
+        "status": "published"
+      },
+      {
+        "code": "metformin",
+        "nameEn": "Metformin",
+        "nameTh": "เมตฟอร์มิน",
+        "category": "Antidiabetic",
+        "commonDosagesMg": [
+          500,
+          850,
+          1000
+        ],
+        "descriptionTh": "รักษาโรคเบาหวานชนิดที่ 2",
+        "active": true,
+        "status": "published"
+      },
+      {
+        "code": "losartan",
+        "nameEn": "Losartan",
+        "nameTh": "โลซาร์แทน",
+        "category": "Antihypertensive",
+        "commonDosagesMg": [
+          50,
+          100
+        ],
+        "descriptionTh": "รักษาโรคความดันโลหิตสูงและปกป้องไต",
+        "active": true,
+        "status": "published"
+      },
+      {
+        "code": "atorvastatin",
+        "nameEn": "Atorvastatin",
+        "nameTh": "อะทอร์วาสแตติน",
+        "category": "Antihyperlipidemic",
+        "commonDosagesMg": [
+          10,
+          20,
+          40
+        ],
+        "descriptionTh": "ลดระดับไขมันคอเลสเตอรอลในเลือด",
+        "active": true,
+        "status": "published"
+      }
+    ],
+    "drug_interactions": [
+      {
+        "id": "INT_001",
+        "drug1": "amlodipine",
+        "drug2": "simvastatin",
+        "severity": "severe",
+        "descriptionTh": "เพิ่มระดับยา Simvastatin ในเลือด อาจทำให้เกิดภาวะกล้ามเนื้อสลาย (Rhabdomyolysis)",
+        "safetyWarning": "โปรดปรึกษาแพทย์เพื่อปรับลดขนาดยา Simvastatin ไม่เกิน 20mg ต่อวัน"
+      },
+      {
+        "id": "INT_002",
+        "drug1": "losartan",
+        "drug2": "spironolactone",
+        "severity": "moderate",
+        "descriptionTh": "เพิ่มความเสี่ยงภาวะ โพแทสเซียมในเลือดสูง (Hyperkalemia)",
+        "safetyWarning": "ควรตรวจติดตามระดับโพแทสเซียมในเลือดเป็นระยะ"
+      }
+    ],
+    "food_interactions": [
+      {
+        "code": "FOOD_GRAPEFRUIT",
+        "foodTh": "น้ำเกรปฟรุต / ส้มโอ",
+        "keywords": [
+          "grapefruit",
+          "ส้มโอ",
+          "เกรปฟรุต"
+        ],
+        "medicineCodes": [
+          "amlodipine",
+          "atorvastatin"
+        ],
+        "severity": "moderate",
+        "descriptionTh": "ยับยั้งเอนไซม์ CYP3A4 ทำให้ระดับยาในเลือดสูงขึ้นจนอาจเกิดผลข้างเคียง"
+      }
+    ]
+  }
+}

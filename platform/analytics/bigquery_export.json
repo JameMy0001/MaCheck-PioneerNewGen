@@ -1,0 +1,9 @@
+{
+  "total_records_processed": 25000,
+  "total_users_analyzed": 200,
+  "high_risk_users_count": 0,
+  "average_adherence_rate": 0.7531,
+  "execution_time_ms": 19.77,
+  "acceleration_layer": "Native Optimized Engine",
+  "sample_high_risk_users": []
+}

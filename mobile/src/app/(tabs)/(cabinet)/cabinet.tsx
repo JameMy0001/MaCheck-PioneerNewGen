@@ -26,7 +26,7 @@ export default function CabinetScreen() {
 
   const remove = (id: string) => Alert.alert('ลบรายการยานี้?', 'ข้อมูลการตั้งเวลาของรายการนี้จะถูกลบออกจากเครื่อง', [
     { text: 'ยกเลิก', style: 'cancel' },
-    { text: 'ลบ', style: 'destructive', onPress: () => { removeMedicine(id); void deleteRemoteMedication(id).catch((error) => console.warn('Remote delete deferred:', error)); void refreshNotifications(); } },
+    { text: 'ลบ', style: 'destructive', onPress: () => { removeMedicine(id); void deleteRemoteMedication(id).catch((error: unknown) => console.warn('Remote delete deferred:', error)); void refreshNotifications(); } },
   ]);
 
   return (

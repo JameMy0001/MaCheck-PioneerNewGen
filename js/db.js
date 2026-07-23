@@ -56,7 +56,7 @@ const DB = {
     });
   },
 
-  // เขียนข้อมูลลง Object Store (Insert/Update)
+  // เขียนข้อมูลลง Object Store (Insert/Update) พร้อมซิงค์ไป Firebase Firestore
   put(storeName, data) {
     return new Promise((resolve, reject) => {
       if (!this.db) return reject(new Error('ฐานข้อมูลยังไม่ได้เปิดใช้งาน'));
@@ -64,7 +64,14 @@ const DB = {
       const store = transaction.objectStore(storeName);
       const request = store.put(data);
 
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        // ซิงค์ไปยัง Firebase Firestore ในฉากหลังสำหรับโปรเจกต์ gen-lang-client-0740402744
+        if (typeof FirebaseDB !== 'undefined' && data) {
+          const docId = data.id || data.key || data.date || String(Date.now());
+          FirebaseDB.setDocument(storeName, String(docId), data).catch(() => {});
+        }
+        resolve(request.result);
+      };
       request.onerror = (e) => reject(e.target.error);
     });
   },

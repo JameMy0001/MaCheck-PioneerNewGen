@@ -78,7 +78,7 @@ export default function RegisterScreen() {
     <KeyboardAvoidingView behavior={process.env.EXPO_OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 18, gap: 16, paddingBottom: 40 }}>
         <View style={{ gap: 8, paddingVertical: 8 }}>
-          <Text selectable style={{ color: colors.primaryDark, fontSize: 30, fontWeight: '900' }}>ยินดีต้อนรับสู่ YaCheck</Text>
+          <Text selectable style={{ color: colors.primaryDark, fontSize: 30, fontWeight: '900' }}>ยินดีต้อนรับสู่ MaCheck</Text>
           <Text selectable style={{ color: colors.muted, fontSize: 16, lineHeight: 24 }}>สมัครด้วย username และรหัสผ่านเท่านั้น เราไม่ขอชื่อจริง เบอร์โทร อีเมล หรือวันเกิด</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>

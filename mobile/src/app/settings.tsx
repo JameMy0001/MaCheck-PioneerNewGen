@@ -37,8 +37,7 @@ export default function SettingsScreen() {
       onPress: () => {
         setLoggingOut(true);
         void signOut()
-          .then(({ error }) => {
-            if (error) throw error;
+          .then(() => {
             reset();
             router.replace('/register');
           })

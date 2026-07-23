@@ -64,7 +64,7 @@ export const useAgentStore = create<AgentState>()(
         }),
     }),
     {
-      name: 'yacheck-agent-store-v1',
+      name: 'macheck-agent-store-v1',
       storage: createJSONStorage(() => secureStateStorage),
       partialize: (state) => ({
         isBubbleVisible: state.isBubbleVisible,

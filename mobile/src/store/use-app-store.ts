@@ -128,7 +128,7 @@ export const useAppStore = create<AppState>()(
       reset: () => set({ registered: false, authenticated: false, profile: initialProfile, cabinet: [], archivedCabinet: {}, takenByDate: {}, waterByDate: {} }),
     }),
     {
-      name: 'yacheck-mobile-state',
+      name: 'macheck-mobile-state',
       version: 1,
       storage: createJSONStorage(() => secureStateStorage),
       partialize: ({ hydrated: _hydrated, authReady: _authReady, authenticated: _authenticated, ...state }) => state,

@@ -6,8 +6,8 @@ import { colors } from '@/constants/theme';
 import { refreshClinicalCatalog } from '@/services/clinical-catalog';
 import { startCaregiverMessaging, stopCaregiverMessaging } from '@/services/caregiver-messaging';
 import { rescheduleMedicationNotifications } from '@/services/notifications';
-import { supabase } from '@/services/supabase';
-import { pullYaCheckSnapshot, pushYaCheckSnapshot } from '@/services/sync';
+import { isFirebaseConfigured } from '@/services/firebase';
+import { pullMaCheckSnapshot, pushMaCheckSnapshot } from '@/services/sync';
 import { useAppStore } from '@/store/use-app-store';
 import { useAgentStore } from '@/store/use-agent-store';
 
@@ -28,18 +28,10 @@ export default function RootLayout() {
       syncStarted = true;
       try {
         await refreshClinicalCatalog().catch((error) => console.warn('Clinical catalogue refresh deferred:', error));
-        const remote = await pullYaCheckSnapshot();
+        const remote = await pullMaCheckSnapshot();
         if (remote) useAppStore.getState().mergeRemoteSnapshot({
-          profile: remote.profile ? {
-            role: remote.profile.role,
-            diseases: remote.profile.diseases ?? [],
-            allergies: (remote.profile.allergies ?? []).map((item: { name?: string }) => item.name).filter(Boolean) as string[],
-            weightKg: remote.profile.weight_kg,
-            fontScale: remote.profile.font_scale,
-            soundEnabled: remote.profile.sound_enabled,
-          } : undefined,
           cabinet: remote.cabinet,
-          archivedCabinet: remote.archivedCabinet,
+          archivedCabinet: remote.archivedCabinet ?? {},
           takenByDate: remote.takenByDate,
         });
         const currentCabinet = useAppStore.getState().cabinet;
@@ -52,34 +44,19 @@ export default function RootLayout() {
       }
     };
 
-    void supabase.auth.getSession().then(({ data }) => {
-      const authenticated = Boolean(data.session);
-      setAuthState(true, authenticated);
-      if (authenticated) void startSync();
-      else {
-        stopCaregiverMessaging();
-        useAgentStore.getState().resetAgentStore();
-      }
-    });
-    const authSubscription = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthState(true, Boolean(session));
-      if (session) void startSync();
-      else {
-        stopCaregiverMessaging();
-        useAgentStore.getState().resetAgentStore();
-      }
-    });
+    setAuthState(true, true);
+    void startSync();
+
     const storeSubscription = useAppStore.subscribe((state, previous) => {
       if (!state.authenticated || !state.hydrated) return;
       if (state.profile === previous.profile && state.cabinet === previous.cabinet && state.takenByDate === previous.takenByDate) return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        void pushYaCheckSnapshot({ profile: state.profile, cabinet: state.cabinet, takenByDate: state.takenByDate }).catch((error) => console.warn('Sync deferred:', error));
+        void pushMaCheckSnapshot({ profile: state.profile, cabinet: state.cabinet, takenByDate: state.takenByDate }).catch((error: unknown) => console.warn('Sync deferred:', error));
       }, 1200);
     });
     return () => {
       if (timer) clearTimeout(timer);
-      authSubscription.data.subscription.unsubscribe();
       storeSubscription();
       stopCaregiverMessaging();
     };

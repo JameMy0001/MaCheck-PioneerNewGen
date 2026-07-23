@@ -231,7 +231,7 @@ export default function CaregiverScreen() {
       </SectionCard>
 
       <SectionCard title="เชิญผู้ดูแลระยะไกล">
-        <Text selectable style={{ color: colors.muted, lineHeight: 22 * multiplier }}>เพื่อนหรือสมาชิกครอบครัวต้องสมัคร YaCheck ด้วย Username ก่อน จากนั้นส่งคำเชิญและรอให้อีกฝ่ายกดยอมรับ</Text>
+        <Text selectable style={{ color: colors.muted, lineHeight: 22 * multiplier }}>เพื่อนหรือสมาชิกครอบครัวต้องสมัคร MaCheck ด้วย Username ก่อน จากนั้นส่งคำเชิญและรอให้อีกฝ่ายกดยอมรับ</Text>
         <Field
           label="Username ของผู้ดูแล"
           value={username}
