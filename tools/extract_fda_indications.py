@@ -86,7 +86,7 @@ def extract(record: dict[str, object]) -> dict[str, object]:
         return {**base, "error": "missing source"}
 
     try:
-        request = Request(safe_url(url), headers={"User-Agent": "YaCheck clinical-source-review/1.0"})
+        request = Request(safe_url(url), headers={"User-Agent": "MaCheck clinical-source-review/1.0"})
         with urlopen(request, timeout=45) as response:
             payload = response.read()
         reader = PdfReader(BytesIO(payload))

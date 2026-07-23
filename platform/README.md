@@ -1,4 +1,4 @@
-# YaCheck / MaCheck shared platform
+# MaCheck / MaCheck shared platform
 
 This folder is the single Supabase backend for both applications. It contains the
 database schema, row-level security policies, username authentication gateway,
@@ -6,7 +6,7 @@ and the shared clinical catalogue.
 
 ## Hosted Free project
 
-- Project: `YaCheck-MaCheck-Central`
+- Project: `MaCheck-MaCheck-Central`
 - Project ref: `witsidzbewjkcnvnnapi`
 - Region: Southeast Asia (Singapore)
 - URL: `https://witsidzbewjkcnvnnapi.supabase.co`

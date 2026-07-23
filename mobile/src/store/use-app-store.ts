@@ -21,6 +21,7 @@ interface AppState {
   register: (profile: Partial<UserProfile>) => void;
   updateProfile: (profile: Partial<UserProfile>) => void;
   setFontScale: (fontScale: FontScale) => void;
+  setLanguage: (language: 'th' | 'en') => void;
   addAllergy: (name: string) => void;
   removeAllergy: (name: string) => void;
   toggleDisease: (disease: string) => void;
@@ -40,6 +41,7 @@ const initialProfile: UserProfile = {
   diseases: [],
   allergies: [],
   fontScale: 'normal',
+  language: 'th',
   soundEnabled: true,
   emergencyName: '',
   emergencyPhone: '',
@@ -76,6 +78,7 @@ export const useAppStore = create<AppState>()(
       register: (profile) => set((state) => ({ registered: true, profile: { ...state.profile, ...profile } })),
       updateProfile: (profile) => set((state) => ({ profile: { ...state.profile, ...profile } })),
       setFontScale: (fontScale) => set((state) => ({ profile: { ...state.profile, fontScale } })),
+      setLanguage: (language) => set((state) => ({ profile: { ...state.profile, language } })),
       addAllergy: (name) => set((state) => {
         const trimmed = name.trim();
         if (!trimmed || state.profile.allergies.includes(trimmed)) return state;

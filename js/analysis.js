@@ -149,7 +149,7 @@ const Analysis = {
       .join('\n');
 
     const message = [
-      'แจ้งเตือนจาก YaCheck',
+      'แจ้งเตือนจาก MaCheck',
       `${state.user.name} พบยาตีกัน!`,
       interactionTitles,
       'กรุณาติดต่อโดยด่วน'

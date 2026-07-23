@@ -1,32 +1,44 @@
 import type { CabinetMedicine } from '@/types/models';
 
 function formatAmount(value: number) {
-  return new Intl.NumberFormat('th-TH', { maximumFractionDigits: 2 }).format(value);
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value);
 }
 
-export function formatMedicineDose(medicine: Pick<CabinetMedicine, 'tabletCount' | 'dosageMg'>) {
+export function formatMedicineDose(
+  medicine: Pick<CabinetMedicine, 'tabletCount' | 'dosageMg'>,
+  lang: 'th' | 'en' = 'th',
+) {
   if (Number.isFinite(medicine.tabletCount) && medicine.tabletCount! > 0) {
-    return `${formatAmount(medicine.tabletCount!)} เม็ด`;
+    const unit = lang === 'en' ? (medicine.tabletCount === 1 ? 'Pill' : 'Pills') : 'เม็ด';
+    return `${formatAmount(medicine.tabletCount!)} ${unit}`;
   }
   if (Number.isFinite(medicine.dosageMg) && medicine.dosageMg! > 0) {
     return `${formatAmount(medicine.dosageMg!)} mg`;
   }
-  return 'ไม่ระบุจำนวน';
+  return lang === 'en' ? 'Unspecified dose' : 'ไม่ระบุจำนวน';
 }
 
-export function formatMedicineDoseForSpeech(medicine: Pick<CabinetMedicine, 'tabletCount' | 'dosageMg'>) {
+export function formatMedicineDoseForSpeech(
+  medicine: Pick<CabinetMedicine, 'tabletCount' | 'dosageMg'>,
+  lang: 'th' | 'en' = 'th',
+) {
   if (Number.isFinite(medicine.tabletCount) && medicine.tabletCount! > 0) {
-    return `${formatAmount(medicine.tabletCount!)} เม็ด`;
+    const unit = lang === 'en' ? (medicine.tabletCount === 1 ? 'pill' : 'pills') : 'เม็ด';
+    return `${formatAmount(medicine.tabletCount!)} ${unit}`;
   }
   if (Number.isFinite(medicine.dosageMg) && medicine.dosageMg! > 0) {
-    return `${formatAmount(medicine.dosageMg!)} มิลลิกรัม`;
+    return `${formatAmount(medicine.dosageMg!)} ${lang === 'en' ? 'milligrams' : 'มิลลิกรัม'}`;
   }
-  return 'ไม่ระบุจำนวน';
+  return lang === 'en' ? 'Unspecified dose' : 'ไม่ระบุจำนวน';
 }
 
-export function serializeMedicineDose(medicine: Pick<CabinetMedicine, 'tabletCount' | 'dosageMg'>) {
+export function serializeMedicineDose(
+  medicine: Pick<CabinetMedicine, 'tabletCount' | 'dosageMg'>,
+  lang: 'th' | 'en' = 'th',
+) {
   if (Number.isFinite(medicine.tabletCount) && medicine.tabletCount! > 0) {
-    return `${medicine.tabletCount} เม็ด`;
+    const unit = lang === 'en' ? (medicine.tabletCount === 1 ? 'Pill' : 'Pills') : 'เม็ด';
+    return `${medicine.tabletCount} ${unit}`;
   }
   if (Number.isFinite(medicine.dosageMg) && medicine.dosageMg! > 0) {
     return `${medicine.dosageMg} mg`;

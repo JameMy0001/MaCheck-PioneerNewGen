@@ -1,8 +1,8 @@
-// ตัวคอนโทรลเลอร์หลักของแอป YaCheck คอยคุม state และการเปลี่ยนหน้า
+// ตัวคอนโทรลเลอร์หลักของแอป MaCheck คอยคุม state และการเปลี่ยนหน้า
 
 const App = {
   currentPage: 'dashboard', // หน้าปัจจุบันที่แสดงอยู่
-  STORAGE_KEY: 'yacheck_state', // คีย์สำหรับเก็บข้อมูลลงในเบราว์เซอร์
+  STORAGE_KEY: 'macheck_state', // คีย์สำหรับเก็บข้อมูลลงในเบราว์เซอร์
   signupRole: 'patient', // บทบาทการสมัครสมาชิกเริ่มต้น
   tempSignUpData: null,  // ข้อมูลการสมัครสมาชิกชั่วคราวรอการยืนยัน OTP
   state: { // ข้อมูลการทำงานหลักของแอป
@@ -126,7 +126,7 @@ const App = {
       if (typeof Challenge !== 'undefined' && Challenge.tick) Challenge.tick();
     }, 1000);
 
-    console.log('[YaCheck] แอปเริ่มต้นและโหลดข้อมูลจาก IndexedDB สำเร็จ');
+    console.log('[MaCheck] แอปเริ่มต้นและโหลดข้อมูลจาก IndexedDB สำเร็จ');
   },
 
   // ฟังก์ชันสลับหน้าเพจหลัก
@@ -306,7 +306,7 @@ const App = {
     this._isSyncing = true;
     try {
       console.log('[App] กำลังซิงค์ข้อมูลไปยัง Supabase...');
-      await SupabaseService.pushYaCheckSnapshot();
+      await SupabaseService.pushMaCheckSnapshot();
       console.log('[App] ซิงค์ข้อมูลสำเร็จ');
     } catch (e) {
       console.warn('[App] ซิงค์ข้อมูลกับ Supabase ล้มเหลว:', e);
@@ -412,7 +412,7 @@ const App = {
         const session = await SupabaseService.getSession();
         if (session) {
           console.log('[App] พบการเข้าสู่ระบบ Supabase ค้างไว้ กำลังซิงค์ข้อมูลล่าสุด...');
-          const remoteState = await SupabaseService.pullYaCheckSnapshot();
+          const remoteState = await SupabaseService.pullMaCheckSnapshot();
           if (remoteState) {
             this.state.currentUser = session.user.user_metadata?.username || session.user.email?.split('@')[0];
             this.state.currentRole = remoteState.currentRole;
@@ -449,7 +449,7 @@ const App = {
         this.state = this._deepMerge(this.state, parsed);
       }
     } catch (e) {
-      console.warn('[YaCheck] โหลด LocalStorage ล้มเหลว:', e);
+      console.warn('[MaCheck] โหลด LocalStorage ล้มเหลว:', e);
     }
   },
 
@@ -491,7 +491,7 @@ const App = {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `yacheck_db_backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `macheck_db_backup_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -779,7 +779,7 @@ const App = {
     this.state.soundEnabled = false;
 
     this.saveState();
-    console.log('[YaCheck] เพิ่มข้อมูลยาตัวอย่าง', sampleMedicines.length, 'รายการสำเร็จ');
+    console.log('[MaCheck] เพิ่มข้อมูลยาตัวอย่าง', sampleMedicines.length, 'รายการสำเร็จ');
   },
 
   // อัปเดตข้อมูลหน้าตั้งค่า
@@ -1138,7 +1138,7 @@ const App = {
       await SupabaseService.login(username.toLowerCase(), password);
       Utils.showToast('เชื่อมต่อ Supabase สำเร็จ กำลังดึงประวัติของคุณ...', 'success');
       
-      const remoteState = await SupabaseService.pullYaCheckSnapshot();
+      const remoteState = await SupabaseService.pullMaCheckSnapshot();
       this._isSyncing = true; // ล็อคไม่ให้บันทึกข้อมูลทับทันที
       
       if (remoteState) {

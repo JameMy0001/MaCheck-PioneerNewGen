@@ -1,5 +1,5 @@
 // ระบบสแกนซองยาจำลองเพื่อเช็กยาตีกันและแพ้ยา (AI Medication Safety Scanner Simulator)
-// ออกแบบโดยรักษาสไตล์ UX/UI ดั้งเดิมของ YaCheck 100%
+// ออกแบบโดยรักษาสไตล์ UX/UI ดั้งเดิมของ MaCheck 100%
 
 const ScanCheck = {
   activeCase: 'case1', // 'case1' | 'case2' | 'case3' | 'case4' | 'unknown'

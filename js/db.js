@@ -1,8 +1,8 @@
-// YaCheck — ระบบจัดการฐานข้อมูล IndexedDB แบบออฟไลน์ 100%
+// MaCheck — ระบบจัดการฐานข้อมูล IndexedDB แบบออฟไลน์ 100%
 // เขียนด้วยภาษาจาวาสคริปต์ดิบ (Vanilla JS) แบบไม่มี dependencies
 
 const DB = {
-  dbName: 'yacheck_db',
+  dbName: 'macheck_db',
   dbVersion: 1,
   db: null,
 
@@ -150,7 +150,7 @@ const DB = {
     }
 
     // 2. ทำระบบย้ายข้อมูลดึงจาก LocalStorage (Migration Path)
-    const oldStateStr = localStorage.getItem('yacheck_state');
+    const oldStateStr = localStorage.getItem('macheck_state') || localStorage.getItem('yacheck_state');
     if (oldStateStr) {
       try {
         const parsed = JSON.parse(oldStateStr);
@@ -207,7 +207,7 @@ const DB = {
           }
 
           parsed.migratedToIdb = true;
-          localStorage.setItem('yacheck_state', JSON.stringify(parsed));
+          localStorage.setItem('macheck_state', JSON.stringify(parsed));
           console.log('[DB] ย้ายข้อมูลจาก LocalStorage เข้าสู่ IndexedDB เสร็จสิ้น!');
         }
       } catch (e) {

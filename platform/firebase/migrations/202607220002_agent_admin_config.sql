@@ -1,4 +1,4 @@
--- Runtime configuration for the YaCheck AI Agent.
+-- Runtime configuration for the MaCheck AI Agent.
 -- Non-secret settings live in Postgres. Provider API keys are encrypted in
 -- Supabase Vault and are never stored in this table.
 
@@ -72,7 +72,7 @@ BEGIN
   END IF;
   SELECT decrypted_secret INTO v_secret
   FROM vault.decrypted_secrets
-  WHERE name = 'yacheck_nvidia_api_key'
+  WHERE name = 'macheck_nvidia_api_key'
   LIMIT 1;
   RETURN v_secret;
 END;
@@ -92,7 +92,7 @@ BEGIN
     RAISE EXCEPTION 'Unsupported provider';
   END IF;
   RETURN EXISTS (
-    SELECT 1 FROM vault.secrets WHERE name = 'yacheck_nvidia_api_key'
+    SELECT 1 FROM vault.secrets WHERE name = 'macheck_nvidia_api_key'
   );
 END;
 $$;
@@ -121,21 +121,21 @@ BEGIN
 
   SELECT id INTO v_secret_id
   FROM vault.secrets
-  WHERE name = 'yacheck_nvidia_api_key'
+  WHERE name = 'macheck_nvidia_api_key'
   LIMIT 1;
 
   IF v_secret_id IS NULL THEN
     PERFORM vault.create_secret(
       p_secret,
-      'yacheck_nvidia_api_key',
-      'YaCheck NVIDIA NIM key managed by the Clinical Admin Owner'
+      'macheck_nvidia_api_key',
+      'MaCheck NVIDIA NIM key managed by the Clinical Admin Owner'
     );
   ELSE
     PERFORM vault.update_secret(
       v_secret_id,
       p_secret,
-      'yacheck_nvidia_api_key',
-      'YaCheck NVIDIA NIM key managed by the Clinical Admin Owner'
+      'macheck_nvidia_api_key',
+      'MaCheck NVIDIA NIM key managed by the Clinical Admin Owner'
     );
   END IF;
   RETURN true;

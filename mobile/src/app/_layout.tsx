@@ -67,6 +67,9 @@ export default function RootLayout() {
     void rescheduleMedicationNotifications(currentCabinet).catch((error) => console.warn('Medication reminders restore deferred:', error));
   }, [authenticated, hydrated]);
 
+  const profile = useAppStore((state) => state.profile);
+  const lang = profile?.language || 'th';
+
   return (
     <>
       <StatusBar style="dark" />
@@ -80,12 +83,12 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="register" options={{ title: 'เริ่มต้นใช้งาน', headerBackVisible: false }} />
+        <Stack.Screen name="register" options={{ title: lang === 'en' ? 'Get Started' : 'เริ่มต้นใช้งาน', headerBackVisible: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="scanner" options={{ title: 'สแกนฉลากยา' }} />
-        <Stack.Screen name="caregiver" options={{ title: 'ผู้ดูแลและฉุกเฉิน' }} />
-        <Stack.Screen name="caregiver-messages" options={{ title: 'ข้อความจากผู้ดูแล' }} />
-        <Stack.Screen name="settings" options={{ title: 'ตั้งค่าและโปรไฟล์' }} />
+        <Stack.Screen name="scanner" options={{ title: lang === 'en' ? 'Rx Label Scanner' : 'สแกนฉลากยา' }} />
+        <Stack.Screen name="caregiver" options={{ title: lang === 'en' ? 'Caregiver & Emergency' : 'ผู้ดูแลและฉุกเฉิน' }} />
+        <Stack.Screen name="caregiver-messages" options={{ title: lang === 'en' ? 'Caregiver Messages' : 'ข้อความจากผู้ดูแล' }} />
+        <Stack.Screen name="settings" options={{ title: lang === 'en' ? 'Settings & Profile' : 'ตั้งค่าและโปรไฟล์' }} />
         <Stack.Screen name="agent-run" options={{ title: 'AI Care Agent', headerShown: false }} />
       </Stack>
       {authenticated && registered ? <DraggableAgentButton /> : null}

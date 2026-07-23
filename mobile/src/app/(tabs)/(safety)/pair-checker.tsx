@@ -9,7 +9,9 @@ import { PrimaryButton, SafetyBanner, SectionCard, useFontMultiplier } from '@/c
 import { colors } from '@/constants/theme';
 import { getMedicine } from '@/data/medicine-db';
 import { useClinicalCatalogStore } from '@/store/use-clinical-catalog-store';
+import { useAppStore } from '@/store/use-app-store';
 import { checkDrugPair } from '@/utils/safety';
+import { t } from '@/utils/i18n';
 
 interface CheckedPair {
   drugA: string;
@@ -17,6 +19,9 @@ interface CheckedPair {
 }
 
 export default function PairCheckerScreen() {
+  const profile = useAppStore((state) => state.profile);
+  const lang = profile.language || 'th';
+
   const multiplier = useFontMultiplier();
   const revision = useClinicalCatalogStore((state) => state.revision);
   const [queryA, setQueryA] = useState('');
@@ -55,11 +60,11 @@ export default function PairCheckerScreen() {
 
   const checkPair = () => {
     if (!drugA || !drugB) {
-      setError('กรุณาเลือกยาจากรายการให้ครบทั้งสองตัว');
+      setError(lang === 'en' ? 'Please select both drugs from list' : 'กรุณาเลือกยาจากรายการให้ครบทั้งสองตัว');
       return;
     }
     if (drugA === drugB) {
-      setError('กรุณาเลือกยาคนละตัว');
+      setError(lang === 'en' ? 'Please select two different drugs' : 'กรุณาเลือกยาคนละตัว');
       return;
     }
     setError('');
@@ -67,28 +72,28 @@ export default function PairCheckerScreen() {
     if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   };
 
-  const checkedNameA = checkedPair ? getMedicine(checkedPair.drugA)?.nameTh ?? checkedPair.drugA : '';
-  const checkedNameB = checkedPair ? getMedicine(checkedPair.drugB)?.nameTh ?? checkedPair.drugB : '';
+  const checkedNameA = checkedPair ? ((lang === 'en' ? getMedicine(checkedPair.drugA)?.nameEn : getMedicine(checkedPair.drugA)?.nameTh) ?? checkedPair.drugA) : '';
+  const checkedNameB = checkedPair ? ((lang === 'en' ? getMedicine(checkedPair.drugB)?.nameEn : getMedicine(checkedPair.drugB)?.nameTh) ?? checkedPair.drugB) : '';
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }}>
       <ClinicalCatalogStatus />
 
-      <SectionCard title="เลือกยาสองตัว">
+      <SectionCard title={lang === 'en' ? 'Select 2 Medications' : 'เลือกยาสองตัว'}>
         <MedicineSearchSelect
-          label="ยาตัวที่ 1"
+          label={lang === 'en' ? 'Medication 1' : 'ยาตัวที่ 1'}
           query={queryA}
           selectedId={drugA}
           onChangeQuery={changeQueryA}
           onSelect={(id, name) => { setDrugA(id); setQueryA(name); setCheckedPair(null); setError(''); }}
         />
 
-        <Pressable accessibilityRole="button" accessibilityLabel="สลับยาตัวที่หนึ่งและตัวที่สอง" onPress={swap} style={({ pressed }) => ({ alignSelf: 'center', minWidth: 48, minHeight: 44, borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.65 : 1 })}>
+        <Pressable accessibilityRole="button" accessibilityLabel={lang === 'en' ? 'Swap medication 1 and 2' : 'สลับยาตัวที่หนึ่งและตัวที่สอง'} onPress={swap} style={({ pressed }) => ({ alignSelf: 'center', minWidth: 48, minHeight: 44, borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.65 : 1 })}>
           <Text style={{ color: colors.primary, fontSize: 22, fontWeight: '900' }}>⇅</Text>
         </Pressable>
 
         <MedicineSearchSelect
-          label="ยาตัวที่ 2"
+          label={lang === 'en' ? 'Medication 2' : 'ยาตัวที่ 2'}
           query={queryB}
           selectedId={drugB}
           onChangeQuery={changeQueryB}
@@ -96,18 +101,18 @@ export default function PairCheckerScreen() {
         />
 
         {error ? <Text selectable accessibilityRole="alert" style={{ color: colors.danger, fontWeight: '700', fontSize: 14 * multiplier }}>{error}</Text> : null}
-        <PrimaryButton label="ตรวจสอบคู่ยา" onPress={checkPair} disabled={!drugA || !drugB} />
+        <PrimaryButton label={lang === 'en' ? 'Check Drug Pair' : 'ตรวจสอบคู่ยา'} onPress={checkPair} disabled={!drugA || !drugB} />
       </SectionCard>
 
       {checkedPair ? (
         <View style={{ gap: 10 }}>
-          <Text selectable style={{ color: colors.text, fontSize: 20 * multiplier, fontWeight: '900' }}>ผลตรวจ: {checkedNameA} + {checkedNameB}</Text>
+          <Text selectable style={{ color: colors.text, fontSize: 20 * multiplier, fontWeight: '900' }}>{lang === 'en' ? 'Result:' : 'ผลตรวจ:'} {checkedNameA} + {checkedNameB}</Text>
           {finding ? (
             <SafetyBanner severity={finding.severity} title={finding.title} description={`${finding.description} ${finding.advice ?? ''}`} />
           ) : (
             <View accessibilityRole="alert" style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 16, borderCurve: 'continuous', padding: 15, gap: 6, backgroundColor: colors.surface }}>
-              <Text selectable style={{ color: colors.text, fontWeight: '900', fontSize: 17 * multiplier }}>ไม่พบข้อมูลคู่นี้ในรายการที่เผยแพร่แล้ว</Text>
-              <Text selectable style={{ color: colors.muted, fontSize: 14 * multiplier, lineHeight: 21 * multiplier }}>ผลนี้ไม่ได้ยืนยันว่ายาทั้งสองตัวปลอดภัยเมื่อใช้ร่วมกัน กรุณาสอบถามแพทย์หรือเภสัชกรก่อนรับประทานร่วมกัน</Text>
+              <Text selectable style={{ color: colors.text, fontWeight: '900', fontSize: 17 * multiplier }}>{lang === 'en' ? 'No interaction warnings found in database' : 'ไม่พบข้อมูลคู่นี้ในรายการที่เผยแพร่แล้ว'}</Text>
+              <Text selectable style={{ color: colors.muted, fontSize: 14 * multiplier, lineHeight: 21 * multiplier }}>{lang === 'en' ? 'This does not guarantee safety. Consult your doctor or pharmacist before taking together.' : 'ผลนี้ไม่ได้ยืนยันว่ายาทั้งสองตัวปลอดภัยเมื่อใช้ร่วมกัน กรุณาสอบถามแพทย์หรือเภสัชกรก่อนรับประทานร่วมกัน'}</Text>
             </View>
           )}
         </View>
@@ -115,11 +120,11 @@ export default function PairCheckerScreen() {
 
       <Link href="./interaction-directory" asChild>
         <Pressable accessibilityRole="link" style={({ pressed }) => ({ minHeight: 48, borderRadius: 14, borderCurve: 'continuous', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.68 : 1 })}>
-          <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 16 * multiplier }}>เปิดรายการคู่ยาที่ควรระวังทั้งหมด</Text>
+          <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 16 * multiplier }}>{t('directory_title', lang)}</Text>
         </Pressable>
       </Link>
 
-      <Text selectable style={{ color: colors.muted, textAlign: 'center', fontSize: 13 * multiplier, lineHeight: 20 * multiplier }}>ระบบแสดงเฉพาะระดับคำสั่งความปลอดภัยและไม่แสดงกลไก อาการ หรือผลกระทบของคู่ยา อย่าปรับหรือหยุดยาเอง</Text>
+      <Text selectable style={{ color: colors.muted, textAlign: 'center', fontSize: 13 * multiplier, lineHeight: 20 * multiplier }}>{t('clinical_limitation', lang)}</Text>
     </ScrollView>
   );
 }

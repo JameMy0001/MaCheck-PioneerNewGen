@@ -87,6 +87,7 @@ export default function AgentRunScreen() {
   } = useAgentStore();
 
   const profile = useAppStore((state) => state.profile);
+  const lang = profile.language || 'th';
 
   const [activeTab, setActiveTab] = useState<'summary' | 'chat'>('summary');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -117,14 +118,7 @@ export default function AgentRunScreen() {
   const [intakeProfile, setIntakeProfile] = useState<AgentClinicalIntakeProfile | undefined>();
   const [intakeExecutionMode, setIntakeExecutionMode] = useState<'live' | 'rules_only'>('rules_only');
   const [pendingClinicalSubmission, setPendingClinicalSubmission] = useState<PendingClinicalSubmission | null>(null);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      sender: 'agent',
-      text: `สวัสดีครับคุณ ${profile.displayName || profile.username || 'ผู้ใช้งาน'} 🤖 ระบบจะแจ้งให้เห็นชัดว่าคำตอบใดมาจาก AI Live กฎความปลอดภัยบนเซิร์ฟเวอร์ หรือโหมดออฟไลน์ และจะไม่ปรับยาให้เอง สามารถพิมพ์สอบถามข้อมูลเรื่องยา อาการแพ้ยา และตารางยาได้ครับ`,
-      timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-    },
-  ]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -135,6 +129,19 @@ export default function AgentRunScreen() {
       setConnectivity(connection);
     });
   }, [updateQuotaState]);
+
+  useEffect(() => {
+    setChatMessages([
+      {
+        id: 'welcome',
+        sender: 'agent',
+        text: lang === 'en'
+          ? `Hello ${profile.displayName || profile.username || 'User'} 🤖 I will clearly indicate whether answers come from Live AI, safety rules, or offline mode. Ask me anything about your medications, allergies, or schedule!`
+          : `สวัสดีครับคุณ ${profile.displayName || profile.username || 'ผู้ใช้งาน'} 🤖 ระบบจะแจ้งให้เห็นชัดว่าคำตอบใดมาจาก AI Live กฎความปลอดภัยบนเซิร์ฟเวอร์ หรือโหมดออฟไลน์ และจะไม่ปรับยาให้เอง สามารถพิมพ์สอบถามข้อมูลเรื่องยา อาการแพ้ยา และตารางยาได้ครับ`,
+        timestamp: new Date().toLocaleTimeString(lang === 'en' ? 'en-US' : 'th-TH', { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
+  }, [profile.displayName, profile.username, profile.language, lang]);
 
   const [analysisStep, setAnalysisStep] = useState<number>(0);
 
@@ -156,7 +163,7 @@ export default function AgentRunScreen() {
       setAnalysisStep(4);
 
       if (!res.success && res.error_code === 'QUOTA_EXCEEDED') {
-        setErrorMsg(res.message || 'คุณใช้โควตาฟรีครบ 7 ครั้งในสัปดาห์นี้แล้ว');
+        setErrorMsg(res.message || (lang === 'en' ? 'You have reached your 7-run weekly limit.' : 'คุณใช้โควตาฟรีครบ 7 ครั้งในสัปดาห์นี้แล้ว'));
         updateQuotaState(0, res.current_tier || 'free', res.max_weekly_quota ?? maxWeeklyQuota);
         return;
       }
@@ -171,7 +178,7 @@ export default function AgentRunScreen() {
         setReviewRequested(false);
       }
     } catch (error) {
-      setErrorMsg(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการวิเคราะห์ข้อมูล');
+      setErrorMsg(error instanceof Error ? error.message : (lang === 'en' ? 'An error occurred during analysis.' : 'เกิดข้อผิดพลาดในการวิเคราะห์ข้อมูล'));
     } finally {
       setAnalyzing(false);
       setAnalysisStep(0);
@@ -191,11 +198,11 @@ export default function AgentRunScreen() {
       setConnectivity(connection);
       if (!connection.online) setErrorMsg(connection.message);
     } catch {
-      setErrorMsg('ไม่สามารถตรวจสอบโควตาจากเซิร์ฟเวอร์ได้');
+      setErrorMsg(lang === 'en' ? 'Unable to check quota from server' : 'ไม่สามารถตรวจสอบโควตาจากเซิร์ฟเวอร์ได้');
     } finally {
       setRefreshing(false);
     }
-  }, [updateQuotaState]);
+  }, [updateQuotaState, lang]);
 
   const handleConnectivityCheck = async () => {
     if (checkingConnectivity) return;
@@ -203,6 +210,7 @@ export default function AgentRunScreen() {
     try {
       const connection = await checkAgentConnectivity();
       setConnectivity(connection);
+      if (!connection.online) setErrorMsg(connection.message);
     } finally {
       setCheckingConnectivity(false);
     }
@@ -221,7 +229,7 @@ export default function AgentRunScreen() {
       sender: 'user',
       text: displayText ?? text,
       contextText: text,
-      timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toLocaleTimeString(lang === 'en' ? 'en-US' : 'th-TH', { hour: '2-digit', minute: '2-digit' }),
     };
 
     const conversationHistory: AgentChatTurn[] = options.history ?? chatMessages
@@ -263,6 +271,7 @@ export default function AgentRunScreen() {
         conversationHistory,
         requestConversationMode,
         requestId,
+        lang,
       );
       if (submission) setPendingClinicalSubmission(null);
       setConversationMode(response.conversationMode);
@@ -277,10 +286,12 @@ export default function AgentRunScreen() {
         id: nextChatMessageId('agent'),
         sender: 'agent',
         text: shouldOpenIntake
-          ? `${response.executionMode === 'live' ? 'AI Live' : 'ระบบคัดกรอง'} วิเคราะห์หัวข้ออาการเบื้องต้นเป็น “${response.intakeProfile?.title ?? 'อาการทั่วไป'}” และเตรียมคำถามที่เกี่ยวข้องแล้ว กรุณากรอกแบบซักอาการที่เปิดขึ้นมาครับ`
+          ? (lang === 'en'
+            ? `${response.executionMode === 'live' ? 'Live AI' : 'Safety Engine'} classified symptom topic as "${response.intakeProfile?.title ?? 'General Symptom'}". Please complete the intake form.`
+            : `${response.executionMode === 'live' ? 'AI Live' : 'ระบบคัดกรอง'} วิเคราะห์หัวข้ออาการเบื้องต้นเป็น “${response.intakeProfile?.title ?? 'อาการทั่วไป'}” และเตรียมคำถามที่เกี่ยวข้องแล้ว กรุณากรอกแบบซักอาการที่เปิดขึ้นมาครับ`)
           : response.text,
         contextText: response.text,
-        timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: new Date().toLocaleTimeString(lang === 'en' ? 'en-US' : 'th-TH', { hour: '2-digit', minute: '2-digit' }),
       };
       setChatMessages((prev) => [...prev, agentMsg]);
     } catch (error) {
@@ -330,20 +341,20 @@ export default function AgentRunScreen() {
     const previousRows = new Map(previousSummary.rows.map((row) => [row.category, row]));
     return latestSummary.rows.flatMap((row) => {
       const previous = previousRows.get(row.category);
-      if (!previous) return [`เพิ่มข้อมูลหมวด ${getCategoryLabel(row.category)}`];
+      if (!previous) return [lang === 'en' ? `New category: ${getCategoryLabel(row.category, lang)}` : `เพิ่มข้อมูลหมวด ${getCategoryLabel(row.category, lang)}`];
       if (previous.status !== row.status || previous.latestData !== row.latestData || previous.finding !== row.finding) {
-        return [`${getCategoryLabel(row.category)}: ${previous.latestData ?? '-'} → ${row.latestData ?? '-'}`];
+        return [`${getCategoryLabel(row.category, lang)}: ${previous.latestData ?? '-'} → ${row.latestData ?? '-'}`];
       }
       return [];
     });
-  }, [latestSummary, previousSummary]);
+  }, [latestSummary, previousSummary, lang]);
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* App Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={[styles.backBtnText, { fontSize: 16 * multiplier }]}>‹ ย้อนกลับ</Text>
+          <Text style={[styles.backBtnText, { fontSize: 16 * multiplier }]}>{lang === 'en' ? '‹ Back' : '‹ ย้อนกลับ'}</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { fontSize: 18 * multiplier }]}>AI Care Agent</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -355,7 +366,7 @@ export default function AgentRunScreen() {
           {__DEV__ || isUnlimited ? (
             <TouchableOpacity
               accessibilityRole="button"
-              accessibilityLabel="เปิดการตั้งค่าและตรวจการเชื่อมต่อ AI Agent"
+              accessibilityLabel="AI Agent Settings"
               onPress={() => setShowSandboxModal(true)}
               style={styles.sandboxBtn}
             >
@@ -372,7 +383,7 @@ export default function AgentRunScreen() {
           onPress={() => setActiveTab('summary')}
         >
           <Text style={[styles.segmentText, activeTab === 'summary' && styles.segmentTextActive]}>
-            📋 สรุปผลความปลอดภัย
+            {lang === 'en' ? '📋 Safety Summary' : '📋 สรุปผลความปลอดภัย'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -380,7 +391,7 @@ export default function AgentRunScreen() {
           onPress={() => setActiveTab('chat')}
         >
           <Text style={[styles.segmentText, activeTab === 'chat' && styles.segmentTextActive]}>
-            💬 สนทนากับ AI
+            {lang === 'en' ? '💬 AI Chat' : '💬 สนทนากับ AI'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -404,9 +415,11 @@ export default function AgentRunScreen() {
             <View style={styles.iconTitleRow}>
               <Text style={{ fontSize: 28 }}>🤖</Text>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.bannerTitle, { fontSize: 18 * multiplier }]}>ผู้ช่วย AI วิเคราะห์ความปลอดภัย</Text>
+                <Text style={[styles.bannerTitle, { fontSize: 18 * multiplier }]}>
+                  {lang === 'en' ? 'AI Safety Assistant Engine' : 'ผู้ช่วย AI วิเคราะห์ความปลอดภัย'}
+                </Text>
                 <Text style={[styles.bannerSub, { fontSize: 13 * multiplier }]}>
-                  ดึงหน้าจอลงเพื่อรีเฟรชโควตา หรือกดปุ่มเริ่มวิเคราะห์เพื่อประมวลผลประวัติล่าสุด
+                  {lang === 'en' ? 'Pull down to refresh quota, or tap button below to run latest safety analysis' : 'ดึงหน้าจอลงเพื่อรีเฟรชโควตา หรือกดปุ่มเริ่มวิเคราะห์เพื่อประมวลผลประวัติล่าสุด'}
                 </Text>
               </View>
             </View>
@@ -419,23 +432,24 @@ export default function AgentRunScreen() {
               {isAnalyzing ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text style={[styles.runBtnText, { fontSize: 15 * multiplier }]}>⚡ เริ่มการวิเคราะห์ความปลอดภัยล่าสุด</Text>
+                <Text style={[styles.runBtnText, { fontSize: 15 * multiplier }]}>
+                  {lang === 'en' ? '⚡ Run Latest Safety Analysis' : '⚡ เริ่มการวิเคราะห์ความปลอดภัยล่าสุด'}
+                </Text>
               )}
             </TouchableOpacity>
-
           </View>
 
           {/* 4-Step Analysis Progress Card */}
           {isAnalyzing && (
             <View style={styles.progressStepCard}>
               <Text style={[styles.progressStepHeader, { fontSize: 15 * multiplier }]}>
-                ⏳ กำลังวิเคราะห์ประวัติสุขภาพตามแผนความปลอดภัย...
+                {lang === 'en' ? '⏳ Analyzing health profile safety plan...' : '⏳ กำลังวิเคราะห์ประวัติสุขภาพตามแผนความปลอดภัย...'}
               </Text>
               {[
-                { title: '1. เตรียมคำขอที่ยืนยันตัวตน', desc: 'ส่งเฉพาะข้อมูลที่จำเป็นไปยัง Agent Server' },
-                { title: '2. สร้าง Snapshot และตรวจ Clinical Rules', desc: 'ประมวลผลใน Edge Function และฐานข้อมูลที่เผยแพร่แล้ว' },
-                { title: '3. เรียบเรียงผลแบบมีข้อจำกัด', desc: 'ใช้ AI เฉพาะการเรียบเรียงเมื่อบริการพร้อม' },
-                { title: '4. บันทึก Run และ Evidence', desc: 'เก็บผลสรุปและเส้นทางตรวจสอบย้อนหลัง' },
+                { title: lang === 'en' ? '1. Authenticated Request Prep' : '1. เตรียมคำขอที่ยืนยันตัวตน', desc: lang === 'en' ? 'Send sanitized profile tokens to Agent server' : 'ส่งเฉพาะข้อมูลที่จำเป็นไปยัง Agent Server' },
+                { title: lang === 'en' ? '2. Snapshot & Clinical Rules Check' : '2. สร้าง Snapshot และตรวจ Clinical Rules', desc: lang === 'en' ? 'Process via Edge Function & published rules' : 'ประมวลผลใน Edge Function และฐานข้อมูลที่เผยแพร่แล้ว' },
+                { title: lang === 'en' ? '3. Constrained Formatting' : '3. เรียบเรียงผลแบบมีข้อจำกัด', desc: lang === 'en' ? 'Use AI solely for natural language synthesis' : 'ใช้ AI เฉพาะการเรียบเรียงเมื่อบริการพร้อม' },
+                { title: lang === 'en' ? '4. Save Run & Audit Trail' : '4. บันทึก Run และ Evidence', desc: lang === 'en' ? 'Persist summary and evidence refs' : 'เก็บผลสรุปและเส้นทางตรวจสอบย้อนหลัง' },
               ].map((step, idx) => {
                 const stepNum = idx + 1;
                 const isDone = analysisStep > stepNum;
@@ -473,7 +487,9 @@ export default function AgentRunScreen() {
           {/* Error / Quota Exceeded Card */}
           {errorMsg ? (
             <View style={styles.errorCard}>
-              <Text style={[styles.errorTitle, { fontSize: 15 * multiplier }]}>⚠️ ไม่สามารถวิเคราะห์ได้ในขณะนี้</Text>
+              <Text style={[styles.errorTitle, { fontSize: 15 * multiplier }]}>
+                {lang === 'en' ? '⚠️ Analysis Unavailable' : '⚠️ ไม่สามารถวิเคราะห์ได้ในขณะนี้'}
+              </Text>
               <Text style={[styles.errorText, { fontSize: 13 * multiplier }]}>{errorMsg}</Text>
             </View>
           ) : null}
@@ -481,7 +497,9 @@ export default function AgentRunScreen() {
           {/* Diff & Delta Banner if previous summary exists */}
           {summaryChanges.length > 0 && (
             <View style={styles.diffCard}>
-              <Text style={[styles.diffTitle, { fontSize: 14 * multiplier }]}>⚠️ ความเปลี่ยนแปลงจากผลสรุปครั้งก่อน</Text>
+              <Text style={[styles.diffTitle, { fontSize: 14 * multiplier }]}>
+                {lang === 'en' ? '⚠️ Changes from Previous Summary' : '⚠️ ความเปลี่ยนแปลงจากผลสรุปครั้งก่อน'}
+              </Text>
               {summaryChanges.slice(0, 4).map((change) => (
                 <Text key={change} style={[styles.diffDesc, { fontSize: 12 * multiplier }]}>• {change}</Text>
               ))}
@@ -495,8 +513,8 @@ export default function AgentRunScreen() {
                 <Text style={{ fontSize: 18 }}>✨</Text>
                 <Text style={[styles.llmTitle, { fontSize: 15 * multiplier }]}>
                   {latestSummary.executionMode === 'live'
-                    ? 'บทวิเคราะห์ที่เรียบเรียงโดย AI (Live)'
-                    : 'ผลคัดกรองจากกฎความปลอดภัย (ไม่ใช้ AI)'}
+                    ? (lang === 'en' ? 'AI Synthesized Review (Live)' : 'บทวิเคราะห์ที่เรียบเรียงโดย AI (Live)')
+                    : (lang === 'en' ? 'Safety Rule Findings (Rules Only)' : 'ผลคัดกรองจากกฎความปลอดภัย (ไม่ใช้ AI)')}
                 </Text>
               </View>
               <Text style={[styles.llmAdviceText, { fontSize: 14 * multiplier }]}>{latestSummary.llmPersonalizedAdvice}</Text>
@@ -506,9 +524,11 @@ export default function AgentRunScreen() {
           {/* Review Request Card */}
           <View style={styles.reviewCard}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.reviewTitle, { fontSize: 15 * multiplier }]}>📩 ส่งคำขอเพื่อตรวจทาน</Text>
+              <Text style={[styles.reviewTitle, { fontSize: 15 * multiplier }]}>
+                {lang === 'en' ? '📩 Request Clinical Review' : '📩 ส่งคำขอเพื่อตรวจทาน'}
+              </Text>
               <Text style={[styles.reviewSub, { fontSize: 12 * multiplier }]}>
-                บันทึกผลสรุปล่าสุดเข้าสู่คิวรอตรวจทาน ระบบจะไม่เปลี่ยนแผนการรักษาอัตโนมัติ
+                {lang === 'en' ? 'Submit summary to review queue. Treatment plan will not auto-change.' : 'บันทึกผลสรุปล่าสุดเข้าสู่คิวรอตรวจทาน ระบบจะไม่เปลี่ยนแผนการรักษาอัตโนมัติ'}
               </Text>
             </View>
             <TouchableOpacity
@@ -517,7 +537,7 @@ export default function AgentRunScreen() {
               disabled={reviewRequested || !canRequestReview}
             >
               <Text style={styles.reviewBtnText}>
-                {reviewRequested ? 'ส่งคำขอแล้ว ✓' : canRequestReview ? 'ขอคำแนะนำ' : 'ต้องใช้ผลจากเซิร์ฟเวอร์'}
+                {reviewRequested ? (lang === 'en' ? 'Submitted ✓' : 'ส่งคำขอแล้ว ✓') : canRequestReview ? (lang === 'en' ? 'Request Advice' : 'ขอคำแนะนำ') : (lang === 'en' ? 'Requires Server Data' : 'ต้องใช้ผลจากเซิร์ฟเวอร์')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -525,7 +545,9 @@ export default function AgentRunScreen() {
           {/* Structured Summary Results */}
           {latestSummary ? (
             <View style={styles.resultsContainer}>
-              <Text style={[styles.sectionTitle, { fontSize: 17 * multiplier }]}>📋 ผลการสรุปความปลอดภัย (Unified Summary)</Text>
+              <Text style={[styles.sectionTitle, { fontSize: 17 * multiplier }]}>
+                {lang === 'en' ? '📋 Unified Safety Summary' : '📋 ผลการสรุปความปลอดภัย (Unified Summary)'}
+              </Text>
 
               {latestSummary.rows.map((row, index) => {
                 const statusStyle = getStatusBadgeStyle(row.status);
@@ -533,9 +555,9 @@ export default function AgentRunScreen() {
                 return (
                   <View key={index} style={styles.rowCard}>
                     <View style={styles.rowHeader}>
-                      <Text style={[styles.categoryTitle, { fontSize: 15 * multiplier }]}>{getCategoryLabel(row.category)}</Text>
+                      <Text style={[styles.categoryTitle, { fontSize: 15 * multiplier }]}>{getCategoryLabel(row.category, lang)}</Text>
                       <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-                        <Text style={[styles.statusText, { color: statusStyle.fg }]}>{getStatusLabel(row.status)}</Text>
+                        <Text style={[styles.statusText, { color: statusStyle.fg }]}>{getStatusLabel(row.status, lang)}</Text>
                       </View>
                     </View>
 
@@ -543,7 +565,7 @@ export default function AgentRunScreen() {
 
                     {row.completeness < 100 && (
                       <View style={styles.incompleteBadge}>
-                        <Text style={styles.incompleteText}>⚠️ ข้อมูลยังไม่สมบูรณ์ ({row.completeness}%)</Text>
+                        <Text style={styles.incompleteText}>⚠️ {lang === 'en' ? 'Incomplete Data' : 'ข้อมูลยังไม่สมบูรณ์'} ({row.completeness}%)</Text>
                       </View>
                     )}
 
@@ -555,22 +577,24 @@ export default function AgentRunScreen() {
                     >
                       <Text style={styles.evidenceToggleText}>
                         {!row.evidenceRefs.length
-                          ? 'ไม่มีหลักฐานอ้างอิงสำหรับรายการนี้'
+                          ? (lang === 'en' ? 'No evidence refs for this item' : 'ไม่มีหลักฐานอ้างอิงสำหรับรายการนี้')
                           : isExpanded
-                            ? '🔼 ปิดหลักฐานอ้างอิงเชิงคลินิก'
-                            : '🔎 ดูหลักฐานอ้างอิงเชิงคลินิก'}
+                            ? (lang === 'en' ? '🔼 Hide Clinical Evidence Refs' : '🔼 ปิดหลักฐานอ้างอิงเชิงคลินิก')
+                            : (lang === 'en' ? '🔎 View Clinical Evidence Refs' : '🔎 ดูหลักฐานอ้างอิงเชิงคลินิก')}
                       </Text>
                     </TouchableOpacity>
 
                     {/* Expanded Evidence Sheet Box */}
                     {isExpanded && row.evidenceRefs && row.evidenceRefs.length > 0 && (
                       <View style={styles.evidenceSheet}>
-                        <Text style={styles.evidenceSheetTitle}>🔗 ตรวจสอบหลักฐานเชิงคลินิก (Evidence Ref):</Text>
+                        <Text style={styles.evidenceSheetTitle}>
+                          {lang === 'en' ? '🔗 Clinical Evidence References:' : '🔗 ตรวจสอบหลักฐานเชิงคลินิก (Evidence Ref):'}
+                        </Text>
                         {row.evidenceRefs.map((ev, i) => (
                           <View key={i} style={styles.evidenceItem}>
-                            <Text style={styles.evidenceItemText}>• ประเภท: {ev.type}</Text>
-                            <Text style={styles.evidenceItemText}>• แหล่งอ้างอิง: {ev.id}</Text>
-                            {ev.description && <Text style={styles.evidenceItemText}>• รายละเอียด: {ev.description}</Text>}
+                            <Text style={styles.evidenceItemText}>• {lang === 'en' ? 'Type' : 'ประเภท'}: {ev.type}</Text>
+                            <Text style={styles.evidenceItemText}>• {lang === 'en' ? 'Ref ID' : 'แหล่งอ้างอิง'}: {ev.id}</Text>
+                            {ev.description && <Text style={styles.evidenceItemText}>• {lang === 'en' ? 'Details' : 'รายละเอียด'}: {ev.description}</Text>}
                           </View>
                         ))}
                       </View>
@@ -583,7 +607,7 @@ export default function AgentRunScreen() {
             !isAnalyzing && (
               <View style={styles.emptyState}>
                 <Text style={[styles.emptyText, { fontSize: 14 * multiplier }]}>
-                  ยังไม่มีผลการสรุปร่าสุด กดปุ่มด้านบนเพื่อเริ่มวิเคราะห์ความปลอดภัยในการทานยา
+                  {lang === 'en' ? 'No recent safety summary. Tap the button above to run analysis.' : 'ยังไม่มีผลการสรุปร่าสุด กดปุ่มด้านบนเพื่อเริ่มวิเคราะห์ความปลอดภัยในการทานยา'}
                 </Text>
               </View>
             )
@@ -608,13 +632,17 @@ export default function AgentRunScreen() {
             onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
           >
             {/* Quick Prompts */}
-            <Text style={[styles.quickPromptTitle, { fontSize: 13 * multiplier }]}>💡 คำถามสืบค้นที่พบบ่อย:</Text>
+            <Text style={[styles.quickPromptTitle, { fontSize: 13 * multiplier }]}>
+              {lang === 'en' ? '💡 Frequently Asked Questions:' : '💡 คำถามสืบค้นที่พบบ่อย:'}
+            </Text>
             {conversationMode === 'symptom_intake' ? (
               <View style={styles.intakeStatusRow}>
-                <Text style={styles.intakeStatusText}>🩺 กำลังซักประวัติอาการก่อนประเมินเรื่องยา</Text>
+                <Text style={styles.intakeStatusText}>
+                  {lang === 'en' ? '🩺 Intake in progress before medication evaluation' : '🩺 กำลังซักประวัติอาการก่อนประเมินเรื่องยา'}
+                </Text>
                 <TouchableOpacity
                   accessibilityRole="button"
-                  accessibilityLabel="เริ่มคำถามใหม่และล้างประวัติการซักอาการ"
+                  accessibilityLabel="New Chat"
                   hitSlop={8}
                   style={styles.newConversationButton}
                   onPress={() => {
@@ -624,12 +652,22 @@ export default function AgentRunScreen() {
                     setPendingClinicalSubmission(null);
                   }}
                 >
-                  <Text style={styles.newConversationText}>เริ่มคำถามใหม่</Text>
+                  <Text style={styles.newConversationText}>{lang === 'en' ? 'New Chat' : 'เริ่มคำถามใหม่'}</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-              {quickPrompts.map((prompt) => (
+              {(lang === 'en' ? [
+                '💊 Are there drug interactions in my cabinet?',
+                '🍊 Can I take grapefruit with blood pressure meds?',
+                '🥛 Can I drink milk with my medication?',
+                '⏰ How should I follow my medication schedule?',
+              ] : [
+                '💊 ในตู้ยาของฉันมียาตีกันไหม?',
+                '🍊 ส้มโอกินร่วมกับยาความดันได้ไหม?',
+                '🥛 ดื่มนมพร้อมยาได้หรือไม่?',
+                '⏰ ควรปฏิบัติตามตารางยาอย่างไร?',
+              ]).map((prompt) => (
                 <TouchableOpacity key={prompt} style={styles.promptChip} onPress={() => void handleSendMessage(prompt)}>
                   <Text style={styles.promptChipText}>{prompt}</Text>
                 </TouchableOpacity>
@@ -661,7 +699,9 @@ export default function AgentRunScreen() {
             {isTyping && (
               <View style={[styles.messageBubble, styles.agentBubble, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
                 <ActivityIndicator size="small" color={colors.primaryDark} />
-                <Text style={{ color: colors.muted, fontSize: 13 }}>AI Care Agent กำลังพิมพ์...</Text>
+                <Text style={{ color: colors.muted, fontSize: 13 }}>
+                  {lang === 'en' ? 'AI Care Agent is typing...' : 'AI Care Agent กำลังพิมพ์...'}
+                </Text>
               </View>
             )}
           </ScrollView>
@@ -669,12 +709,16 @@ export default function AgentRunScreen() {
           {pendingClinicalSubmission ? (
             <View style={styles.pendingSubmissionCard} accessibilityRole="alert">
               <View style={{ flex: 1 }}>
-                <Text style={styles.pendingSubmissionTitle}>การส่งแบบซักอาการยังไม่สำเร็จ</Text>
-                <Text style={styles.pendingSubmissionText}>ข้อมูลยังอยู่ในหน้านี้ และจะใช้รหัสคำขอเดิมเพื่อป้องกันการประมวลผลซ้ำ</Text>
+                <Text style={styles.pendingSubmissionTitle}>
+                  {lang === 'en' ? 'Intake Submission Pending' : 'การส่งแบบซักอาการยังไม่สำเร็จ'}
+                </Text>
+                <Text style={styles.pendingSubmissionText}>
+                  {lang === 'en' ? 'Data retained on device. Will retry with original request ID.' : 'ข้อมูลยังอยู่ในหน้านี้ และจะใช้รหัสคำขอเดิมเพื่อป้องกันการประมวลผลซ้ำ'}
+                </Text>
               </View>
               <TouchableOpacity
                 accessibilityRole="button"
-                accessibilityLabel="ลองส่งแบบซักอาการอีกครั้ง"
+                accessibilityLabel="Retry"
                 disabled={isTyping}
                 style={[styles.retrySubmissionButton, isTyping && styles.sendBtnDisabled]}
                 onPress={() => void handleSendMessage(
@@ -689,7 +733,7 @@ export default function AgentRunScreen() {
                   },
                 )}
               >
-                <Text style={styles.retrySubmissionText}>{isTyping ? 'กำลังลองใหม่…' : 'ลองส่งอีกครั้ง'}</Text>
+                <Text style={styles.retrySubmissionText}>{isTyping ? (lang === 'en' ? 'Retrying…' : 'กำลังลองใหม่…') : (lang === 'en' ? 'Retry' : 'ลองส่งอีกครั้ง')}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -700,7 +744,7 @@ export default function AgentRunScreen() {
               style={styles.chatInput}
               value={inputText}
               onChangeText={setInputText}
-              placeholder="พิมพ์คำถามเรื่องยา อาการแพ้ หรือของแสลง..."
+              placeholder={lang === 'en' ? 'Type your medication, allergy, or food query...' : 'พิมพ์คำถามเรื่องยา อาการแพ้ หรือของแสลง...'}
               placeholderTextColor={colors.muted}
               onSubmitEditing={() => void handleSendMessage()}
               editable={!isTyping}
@@ -710,7 +754,7 @@ export default function AgentRunScreen() {
               onPress={() => void handleSendMessage()}
               disabled={!inputText.trim() || isTyping}
             >
-              <Text style={styles.sendBtnText}>ส่ง</Text>
+              <Text style={styles.sendBtnText}>{lang === 'en' ? 'Send' : 'ส่ง'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -764,10 +808,10 @@ export default function AgentRunScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.sandboxModalBox}>
             <View style={styles.sandboxHeader}>
-              <Text style={styles.sandboxTitle}>⚙️ การตั้งค่า AI Agent</Text>
+              <Text style={styles.sandboxTitle}>{lang === 'en' ? '⚙️ AI Agent Settings' : '⚙️ การตั้งค่า AI Agent'}</Text>
               <TouchableOpacity
                 accessibilityRole="button"
-                accessibilityLabel="ปิดการตั้งค่า AI Agent"
+                accessibilityLabel={lang === 'en' ? 'Close AI Agent settings' : 'ปิดการตั้งค่า AI Agent'}
                 hitSlop={8}
                 onPress={() => setShowSandboxModal(false)}
               >
@@ -788,11 +832,11 @@ export default function AgentRunScreen() {
                   <Text style={styles.sandboxLabel}>
                     {connectivity.online
                       ? connectivity.mode === 'live'
-                        ? '● Agent Server พร้อมใช้งาน · AI Live'
-                        : '● Agent Server พร้อมใช้งาน · โหมดกฎ'
+                        ? (lang === 'en' ? '● Agent Server Ready · AI Live' : '● Agent Server พร้อมใช้งาน · AI Live')
+                        : (lang === 'en' ? '● Agent Server Ready · Rules Mode' : '● Agent Server พร้อมใช้งาน · โหมดกฎ')
                       : connectivity.code === 'NETWORK_ERROR'
-                        ? '● การเชื่อมต่อไม่เสถียร · กำลังรอตรวจใหม่'
-                        : '● Agent Server ยังไม่พร้อม'}
+                        ? (lang === 'en' ? '● Connection Unstable · Retrying' : '● การเชื่อมต่อไม่เสถียร · กำลังรอตรวจใหม่')
+                        : (lang === 'en' ? '● Agent Server Unavailable' : '● Agent Server ยังไม่พร้อม')}
                   </Text>
                   <Text selectable style={styles.sandboxSub}>{connectivity.message}</Text>
                 </View>
@@ -804,26 +848,26 @@ export default function AgentRunScreen() {
                 >
                   {checkingConnectivity
                     ? <ActivityIndicator size="small" color={colors.primary} />
-                    : <Text style={styles.connectionTestText}>ตรวจอีกครั้ง</Text>}
+                    : <Text style={styles.connectionTestText}>{lang === 'en' ? 'Recheck' : 'ตรวจอีกครั้ง'}</Text>}
                 </TouchableOpacity>
               </View>
 
               {__DEV__ ? <View style={styles.sandboxRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.sandboxLabel}>จำลองระบบ AI ขัดข้อง (Outage Mode)</Text>
-                  <Text style={styles.sandboxSub}>สวิตช์นี้แสดงเฉพาะ Development build</Text>
+                  <Text style={styles.sandboxLabel}>{lang === 'en' ? 'Simulate AI Outage Mode' : 'จำลองระบบ AI ขัดข้อง (Outage Mode)'}</Text>
+                  <Text style={styles.sandboxSub}>{lang === 'en' ? 'This switch is only visible in Development build' : 'สวิตช์นี้แสดงเฉพาะ Development build'}</Text>
                 </View>
                 <Switch value={outageMode} onValueChange={setOutageMode} trackColor={{ true: colors.warning }} />
               </View> : null}
 
               <View style={styles.sandboxInfo}>
-                <Text style={styles.sandboxLabel}>Runtime configuration มาจาก Clinical Admin</Text>
-                <Text style={styles.sandboxSub}>Model, fallback, temperature และ token limit ถูกควบคุมจากเซิร์ฟเวอร์ ผู้ใช้มือถือเปลี่ยนค่าเหล่านี้ไม่ได้</Text>
+                <Text style={styles.sandboxLabel}>{lang === 'en' ? 'Runtime configuration managed by Clinical Admin' : 'Runtime configuration มาจาก Clinical Admin'}</Text>
+                <Text style={styles.sandboxSub}>{lang === 'en' ? 'Model, fallback, temperature, and token limit are controlled server-side.' : 'Model, fallback, temperature และ token limit ถูกควบคุมจากเซิร์ฟเวอร์ ผู้ใช้มือถือเปลี่ยนค่าเหล่านี้ไม่ได้'}</Text>
               </View>
             </View>
 
             <TouchableOpacity style={styles.sandboxCloseBtn} onPress={() => setShowSandboxModal(false)}>
-              <Text style={styles.sandboxCloseText}>ปิด</Text>
+              <Text style={styles.sandboxCloseText}>{lang === 'en' ? 'Close' : 'ปิด'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -832,29 +876,29 @@ export default function AgentRunScreen() {
   );
 }
 
-function getCategoryLabel(cat: string) {
-  const map: Record<string, string> = {
-    conditions: '🏥 โรคประจำตัวของคุณ',
-    allergies: '⚠️ ประวัติยาที่เคยแพ้',
-    drug_interactions: '💊 ยาที่เสี่ยงตีกันหรือทานร่วมกันไม่ได้',
-    medication_schedule: '⏰ ตารางเวลากินยาประจำวัน',
-    medicine_cabinet: '🗄️ ยาในตู้ยาของคุณ',
-    adherence: '📊 สถิติความตรงเวลาในการกินยา',
-    body_metrics: '⚖️ น้ำหนักตัวและสุขภาพร่างกาย',
+function getCategoryLabel(cat: string, lang: 'th' | 'en' = 'th') {
+  const map: Record<string, { th: string; en: string }> = {
+    conditions: { th: '🏥 โรคประจำตัวของคุณ', en: '🏥 Medical Conditions' },
+    allergies: { th: '⚠️ ประวัติยาที่เคยแพ้', en: '⚠️ Allergy History' },
+    drug_interactions: { th: '💊 ยาที่เสี่ยงตีกันหรือทานร่วมกันไม่ได้', en: '💊 Drug Interaction Warnings' },
+    medication_schedule: { th: '⏰ ตารางเวลากินยาประจำวัน', en: '⏰ Daily Schedule' },
+    medicine_cabinet: { th: '🗄️ ยาในตู้ยาของคุณ', en: '🗄️ Medicine Cabinet' },
+    adherence: { th: '📊 สถิติความตรงเวลาในการกินยา', en: '📊 Adherence Stats' },
+    body_metrics: { th: '⚖️ น้ำหนักตัวและสุขภาพร่างกาย', en: '⚖️ Body Weight & Metrics' },
   };
-  return map[cat] || cat;
+  return map[cat]?.[lang] || map[cat]?.th || cat;
 }
 
-function getStatusLabel(status: string) {
-  const map: Record<string, string> = {
-    ok: 'ปลอดภัยดี',
-    info: 'ข้อมูลทั่วไป',
-    needs_data: 'ยังขาดข้อมูลสำคัญ',
-    needs_attention: 'ควรระมัดระวัง',
-    review_required: 'ต้องให้ผู้เชี่ยวชาญตรวจ',
-    critical: 'เสี่ยงอันตรายรุนแรง',
+function getStatusLabel(status: string, lang: 'th' | 'en' = 'th') {
+  const map: Record<string, { th: string; en: string }> = {
+    ok: { th: 'ปลอดภัยดี', en: 'Safe' },
+    info: { th: 'ข้อมูลทั่วไป', en: 'Info' },
+    needs_data: { th: 'ยังขาดข้อมูลสำคัญ', en: 'Missing Data' },
+    needs_attention: { th: 'ควรระมัดระวัง', en: 'Needs Attention' },
+    review_required: { th: 'ต้องให้ผู้เชี่ยวชาญตรวจ', en: 'Review Required' },
+    critical: { th: 'เสี่ยงอันตรายรุนแรง', en: 'Critical' },
   };
-  return map[status] || status;
+  return map[status]?.[lang] || map[status]?.th || status;
 }
 
 function getStatusBadgeStyle(status: string) {

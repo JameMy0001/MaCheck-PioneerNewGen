@@ -1,5 +1,5 @@
 // ระบบตรวจเช็กของแสลง (Food Clash Analyzer)
-// ออกแบบโดยเน้นสไตล์ที่สอดคล้องกับ UX/UI ดั้งเดิมของ YaCheck 100%
+// ออกแบบโดยเน้นสไตล์ที่สอดคล้องกับ UX/UI ดั้งเดิมของ MaCheck 100%
 
 const FoodClash = {
   inputText: '',
@@ -273,7 +273,7 @@ const FoodClash = {
       id: 'notif_' + Date.now(),
       type: 'info',
       time: new Date().toISOString(),
-      message: `[YaCheck ออฟไลน์] ` + text
+      message: `[MaCheck ออฟไลน์] ` + text
     });
     App.updateState('notifications', notifications);
   }

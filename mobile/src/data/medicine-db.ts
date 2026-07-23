@@ -6,44 +6,46 @@ const med = (
   nameEn: string,
   nameTh: string,
   category: string,
+  categoryEn: string,
   dosages: number[],
   description: string,
-): MedicineDefinition => ({ id, nameEn, nameTh, category, dosages, description });
+  descriptionEn: string,
+): MedicineDefinition => ({ id, nameEn, nameTh, category, categoryEn, dosages, description, descriptionEn });
 
 export const medicines: MedicineDefinition[] = [
-  med('metformin', 'Metformin', 'เมทฟอร์มิน', 'ยาเบาหวาน', [500, 850, 1000], 'ช่วยควบคุมระดับน้ำตาลในเลือดสำหรับเบาหวานชนิดที่ 2'),
-  med('amlodipine', 'Amlodipine', 'แอมโลดิพีน', 'ยาความดัน', [2.5, 5, 10], 'ยาขยายหลอดเลือดเพื่อลดความดันโลหิต'),
-  med('aspirin', 'Aspirin', 'แอสไพริน', 'ยาต้านเกล็ดเลือด', [75, 81, 100, 325], 'ลดการเกาะตัวของเกล็ดเลือดตามคำสั่งแพทย์'),
-  med('simvastatin', 'Simvastatin', 'ซิมวาสแตติน', 'ยาลดไขมัน', [10, 20, 40], 'ช่วยลดคอเลสเตอรอลในเลือด'),
-  med('warfarin', 'Warfarin', 'วาร์ฟาริน', 'ยาต้านการแข็งตัวของเลือด', [1, 2, 3, 5], 'ต้องติดตามค่า INR และใช้ตามคำสั่งแพทย์อย่างเคร่งครัด'),
-  med('omeprazole', 'Omeprazole', 'โอเมพราโซล', 'ยาลดกรด', [20, 40], 'ลดการหลั่งกรดในกระเพาะอาหาร'),
-  med('enalapril', 'Enalapril', 'อีนาลาพริล', 'ยาความดัน', [5, 10, 20], 'ยาลดความดันกลุ่ม ACE inhibitor'),
-  med('losartan', 'Losartan', 'ลอซาร์แทน', 'ยาความดัน', [25, 50, 100], 'ยาลดความดันกลุ่ม ARB'),
-  med('hydrochlorothiazide', 'Hydrochlorothiazide', 'ไฮโดรคลอโรไทอาไซด์', 'ยาขับปัสสาวะ', [12.5, 25], 'ยาขับปัสสาวะที่ช่วยลดความดัน'),
-  med('glipizide', 'Glipizide', 'ไกลพิไซด์', 'ยาเบาหวาน', [5, 10], 'ช่วยกระตุ้นการหลั่งอินซูลิน'),
-  med('atorvastatin', 'Atorvastatin', 'อะทอร์วาสแตติน', 'ยาลดไขมัน', [10, 20, 40, 80], 'ช่วยลดคอเลสเตอรอลและไตรกลีเซอไรด์'),
-  med('diclofenac', 'Diclofenac', 'ไดโคลฟีแนค', 'ยาแก้ปวด NSAID', [25, 50], 'ยาแก้ปวดและต้านการอักเสบ'),
-  med('ibuprofen', 'Ibuprofen', 'ไอบูโพรเฟน', 'ยาแก้ปวด NSAID', [200, 400, 600], 'ยาแก้ปวด ลดไข้ และต้านการอักเสบ'),
-  med('paracetamol', 'Paracetamol', 'พาราเซตามอล', 'ยาแก้ปวด/ลดไข้', [325, 500], 'ยาแก้ปวดและลดไข้ทั่วไป'),
-  med('gabapentin', 'Gabapentin', 'กาบาเพนติน', 'ยาแก้ปวดเส้นประสาท', [100, 300, 600], 'ใช้รักษาอาการปวดเส้นประสาทหรือโรคลมชัก'),
-  med('clopidogrel', 'Clopidogrel', 'โคลพิโดเกรล', 'ยาต้านเกล็ดเลือด', [75], 'ช่วยป้องกันลิ่มเลือดอุดตัน'),
-  med('levothyroxine', 'Levothyroxine', 'เลโวไทร็อกซิน', 'ยาไทรอยด์', [25, 50, 75, 100], 'ฮอร์โมนทดแทนสำหรับภาวะไทรอยด์ต่ำ'),
-  med('prednisolone', 'Prednisolone', 'เพรดนิโซโลน', 'ยาสเตียรอยด์', [5, 10, 20], 'ยาต้านการอักเสบและกดภูมิคุ้มกัน'),
-  med('digoxin', 'Digoxin', 'ดิจ็อกซิน', 'ยาหัวใจ', [0.0625, 0.125, 0.25], 'ใช้ในภาวะหัวใจเต้นผิดจังหวะหรือหัวใจล้มเหลว'),
-  med('furosemide', 'Furosemide', 'ฟูโรซีไมด์', 'ยาขับปัสสาวะ', [20, 40, 80], 'ยาขับปัสสาวะเพื่อลดอาการบวม'),
-  med('pioglitazone', 'Pioglitazone', 'ไพโอกลิตาโซน', 'ยาเบาหวาน', [15, 30, 45], 'ช่วยเพิ่มความไวต่ออินซูลิน'),
-  med('metoprolol', 'Metoprolol', 'เมโทโปรลอล', 'ยาความดัน', [50, 100], 'ควบคุมความดันและอัตราการเต้นหัวใจ'),
-  med('atenolol', 'Atenolol', 'อะทีโนลอล', 'ยาความดัน', [25, 50, 100], 'ยาลดความดันกลุ่ม beta blocker'),
-  med('spironolactone', 'Spironolactone', 'สไปโรโนแลคโตน', 'ยาขับปัสสาวะ', [25, 50, 100], 'ยาขับปัสสาวะแบบเก็บโพแทสเซียม'),
-  med('naproxen', 'Naproxen', 'นาโพรเซน', 'ยาแก้ปวด NSAID', [250, 500], 'ยาแก้ปวดต้านการอักเสบชนิดออกฤทธิ์นาน'),
-  med('celecoxib', 'Celecoxib', 'ซีลีค็อกซิบ', 'ยาแก้ปวด NSAID', [100, 200], 'ยาแก้ปวดข้ออักเสบกลุ่ม COX-2'),
-  med('tramadol', 'Tramadol', 'ทรามาดอล', 'ยาแก้ปวดรุนแรง', [50], 'ยาแก้ปวดกลุ่ม opioid ที่ต้องใช้ด้วยความระมัดระวัง'),
-  med('ginkgo', 'Ginkgo Biloba', 'สารสกัดใบแปะก๊วย', 'สมุนไพร/อาหารเสริม', [40, 60, 120], 'อาหารเสริมที่อาจมีผลต่อการแข็งตัวของเลือด'),
-  med('ginseng', 'Ginseng', 'โสมสกัด', 'สมุนไพร/อาหารเสริม', [100, 250, 500], 'อาหารเสริมสมุนไพร'),
-  med('calcium', 'Calcium Carbonate', 'แคลเซียมคาร์บอเนต', 'แร่ธาตุเสริม', [600, 1250], 'แคลเซียมเสริมที่อาจรบกวนการดูดซึมยาบางชนิด'),
-  med('alendronate', 'Alendronate', 'อะเลนโดรเนต', 'ยาโรคกระดูก', [10, 70], 'ยารักษาและป้องกันโรคกระดูกพรุน'),
-  med('amiodarone', 'Amiodarone', 'อะมิโอดาโรน', 'ยาหัวใจ', [200], 'ยารักษาภาวะหัวใจเต้นผิดจังหวะ'),
-  med('ciprofloxacin', 'Ciprofloxacin', 'ไซโปรฟลอกซาซิน', 'ยาปฏิชีวนะ', [250, 500], 'ยาปฏิชีวนะกลุ่ม fluoroquinolone'),
+  med('metformin', 'Metformin', 'เมทฟอร์มิน', 'ยาเบาหวาน', 'Antidiabetic', [500, 850, 1000], 'ช่วยควบคุมระดับน้ำตาลในเลือดสำหรับเบาหวานชนิดที่ 2', 'Helps control blood sugar levels for type 2 diabetes'),
+  med('amlodipine', 'Amlodipine', 'แอมโลดิพีน', 'ยาความดัน', 'Antihypertensive', [2.5, 5, 10], 'ยาขยายหลอดเลือดเพื่อลดความดันโลหิต', 'Vasodilator to lower blood pressure'),
+  med('aspirin', 'Aspirin', 'แอสไพริน', 'ยาต้านเกล็ดเลือด', 'Antiplatelet', [75, 81, 100, 325], 'ลดการเกาะตัวของเกล็ดเลือดตามคำสั่งแพทย์', 'Prevents platelet aggregation as prescribed'),
+  med('simvastatin', 'Simvastatin', 'ซิมวาสแตติน', 'ยาลดไขมัน', 'Lipid-lowering', [10, 20, 40], 'ช่วยลดคอเลสเตอรอลในเลือด', 'Helps lower blood cholesterol'),
+  med('warfarin', 'Warfarin', 'วาร์ฟาริน', 'ยาต้านการแข็งตัวของเลือด', 'Anticoagulant', [1, 2, 3, 5], 'ต้องติดตามค่า INR และใช้ตามคำสั่งแพทย์อย่างเคร่งครัด', 'Requires INR monitoring and strict medical supervision'),
+  med('omeprazole', 'Omeprazole', 'โอเมพราโซล', 'ยาลดกรด', 'Antacid / PPI', [20, 40], 'ลดการหลั่งกรดในกระเพาะอาหาร', 'Reduces stomach acid secretion'),
+  med('enalapril', 'Enalapril', 'อีนาลาพริล', 'ยาความดัน', 'Antihypertensive', [5, 10, 20], 'ยาลดความดันกลุ่ม ACE inhibitor', 'ACE inhibitor for blood pressure control'),
+  med('losartan', 'Losartan', 'ลอซาร์แทน', 'ยาความดัน', 'Antihypertensive', [25, 50, 100], 'ยาลดความดันกลุ่ม ARB', 'ARB for blood pressure control'),
+  med('hydrochlorothiazide', 'Hydrochlorothiazide', 'ไฮโดรคลอโรไทอาไซด์', 'ยาขับปัสสาวะ', 'Diuretic', [12.5, 25], 'ยาขับปัสสาวะที่ช่วยลดความดัน', 'Thiazide diuretic to lower blood pressure'),
+  med('glipizide', 'Glipizide', 'ไกลพิไซด์', 'ยาเบาหวาน', 'Antidiabetic', [5, 10], 'ช่วยกระตุ้นการหลั่งอินซูลิน', 'Stimulates insulin secretion'),
+  med('atorvastatin', 'Atorvastatin', 'อะทอร์วาสแตติน', 'ยาลดไขมัน', 'Lipid-lowering', [10, 20, 40, 80], 'ช่วยลดคอเลสเตอรอลและไตรกลีเซอไรด์', 'Lowers blood cholesterol and triglycerides'),
+  med('diclofenac', 'Diclofenac', 'ไดโคลฟีแนค', 'ยาแก้ปวด NSAID', 'NSAID Pain Reliever', [25, 50], 'ยาแก้ปวดและต้านการอักเสบ', 'Analgesic and anti-inflammatory medication'),
+  med('ibuprofen', 'Ibuprofen', 'ไอบูโพรเฟน', 'ยาแก้ปวด NSAID', 'NSAID Pain Reliever', [200, 400, 600], 'ยาแก้ปวด ลดไข้ และต้านการอักเสบ', 'Pain reliever, fever reducer, and anti-inflammatory'),
+  med('paracetamol', 'Paracetamol', 'พาราเซตามอล', 'ยาแก้ปวด/ลดไข้', 'Analgesic / Antipyretic', [325, 500], 'ยาแก้ปวดและลดไข้ทั่วไป', 'Common pain reliever and fever reducer'),
+  med('gabapentin', 'Gabapentin', 'กาบาเพนติน', 'ยาแก้ปวดเส้นประสาท', 'Nerve Pain Reliever', [100, 300, 600], 'ใช้รักษาอาการปวดเส้นประสาทหรือโรคลมชัก', 'For neuropathic pain or seizure control'),
+  med('clopidogrel', 'Clopidogrel', 'โคลพิโดเกรล', 'ยาต้านเกล็ดเลือด', 'Antiplatelet', [75], 'ช่วยป้องกันลิ่มเลือดอุดตัน', 'Helps prevent blood clots'),
+  med('levothyroxine', 'Levothyroxine', 'เลโวไทร็อกซิน', 'ยาไทรอยด์', 'Thyroid Hormone', [25, 50, 75, 100], 'ฮอร์โมนทดแทนสำหรับภาวะไทรอยด์ต่ำ', 'Hormone replacement for hypothyroidism'),
+  med('prednisolone', 'Prednisolone', 'เพรดนิโซโลน', 'ยาสเตียรอยด์', 'Steroid', [5, 10, 20], 'ยาต้านการอักเสบและกดภูมิคุ้มกัน', 'Anti-inflammatory and immunosuppressant'),
+  med('digoxin', 'Digoxin', 'ดิจ็อกซิน', 'ยาหัวใจ', 'Cardiac Medication', [0.0625, 0.125, 0.25], 'ใช้ในภาวะหัวใจเต้นผิดจังหวะหรือหัวใจล้มเหลว', 'For heart arrhythmia or heart failure'),
+  med('furosemide', 'Furosemide', 'ฟูโรซีไมด์', 'ยาขับปัสสาวะ', 'Loop Diuretic', [20, 40, 80], 'ยาขับปัสสาวะเพื่อลดอาการบวม', 'Diuretic to reduce swelling and fluid retention'),
+  med('pioglitazone', 'Pioglitazone', 'ไพโอกลิตาโซน', 'ยาเบาหวาน', 'Antidiabetic', [15, 30, 45], 'ช่วยเพิ่มความไวต่ออินซูลิน', 'Increases insulin sensitivity'),
+  med('metoprolol', 'Metoprolol', 'เมโทโปรลอล', 'ยาความดัน', 'Antihypertensive', [50, 100], 'ควบคุมความดันและอัตราการเต้นหัวใจ', 'Controls blood pressure and heart rate'),
+  med('atenolol', 'Atenolol', 'อะทีโนลอล', 'ยาความดัน', 'Antihypertensive', [25, 50, 100], 'ยาลดความดันกลุ่ม beta blocker', 'Beta-blocker for blood pressure control'),
+  med('spironolactone', 'Spironolactone', 'สไปโรโนแลคโตน', 'ยาขับปัสสาวะ', 'Diuretic', [25, 50, 100], 'ยาขับปัสสาวะแบบเก็บโพแทสเซียม', 'Potassium-sparing diuretic'),
+  med('naproxen', 'Naproxen', 'นาโพรเซน', 'ยาแก้ปวด NSAID', 'NSAID Pain Reliever', [250, 500], 'ยาแก้ปวดต้านการอักเสบชนิดออกฤทธิ์นาน', 'Long-acting anti-inflammatory pain reliever'),
+  med('celecoxib', 'Celecoxib', 'ซีลีค็อกซิบ', 'ยาแก้ปวด NSAID', 'NSAID (COX-2)', [100, 200], 'ยาแก้ปวดข้ออักเสบกลุ่ม COX-2', 'COX-2 inhibitor for arthritis and pain'),
+  med('tramadol', 'Tramadol', 'ทรามาดอล', 'ยาแก้ปวดรุนแรง', 'Opioid Analgesic', [50], 'ยาแก้ปวดกลุ่ม opioid ที่ต้องใช้ด้วยความระมัดระวัง', 'Prescription pain reliever to be used with caution'),
+  med('ginkgo', 'Ginkgo Biloba', 'สารสกัดใบแปะก๊วย', 'สมุนไพร/อาหารเสริม', 'Herbal Supplement', [40, 60, 120], 'อาหารเสริมที่อาจมีผลต่อการแข็งตัวของเลือด', 'Supplement that may affect blood clotting'),
+  med('ginseng', 'Ginseng', 'โสมสกัด', 'สมุนไพร/อาหารเสริม', 'Herbal Supplement', [100, 250, 500], 'อาหารเสริมสมุนไพร', 'Herbal supplement'),
+  med('calcium', 'Calcium Carbonate', 'แคลเซียมคาร์บอเนต', 'แร่ธาตุเสริม', 'Calcium Supplement', [600, 1250], 'แคลเซียมเสริมที่อาจรบกวนการดูดซึมยาบางชนิด', 'May interfere with absorption of certain drugs'),
+  med('alendronate', 'Alendronate', 'อะเลนโดรเนต', 'ยาโรคกระดูก', 'Bone Medication', [10, 70], 'ยารักษาและป้องกันโรคกระดูกพรุน', 'Prevents and treats osteoporosis'),
+  med('amiodarone', 'Amiodarone', 'อะมิโอดาโรน', 'ยาหัวใจ', 'Antiarrhythmic', [200], 'ยารักษาภาวะหัวใจเต้นผิดจังหวะ', 'Treats irregular heartbeats'),
+  med('ciprofloxacin', 'Ciprofloxacin', 'ไซโปรฟลอกซาซิน', 'ยาปฏิชีวนะ', 'Antibiotic', [250, 500], 'ยาปฏิชีวนะกลุ่ม fluoroquinolone', 'Fluoroquinolone antibiotic'),
 ];
 
 const interaction = (
@@ -98,74 +100,15 @@ export function getMedicine(id: string) {
   return medicines.find((item) => item.id === id);
 }
 
-function normalizeMedicineSearchText(value: string) {
-  return value
-    .normalize('NFKC')
-    .toLocaleLowerCase('th')
-    .replace(/[\s_/,.-]+/g, ' ')
-    .trim();
-}
-
-export function searchMedicines(query: string) {
-  const normalized = normalizeMedicineSearchText(query);
-  if (!normalized) return medicines;
-
-  // Everyday Thai Search Synonyms Mapping
-  const synonymMap: Record<string, string[]> = {
-    แก้ปวด: ['paracetamol', 'ibuprofen', 'diclofenac', 'naproxen', 'celecoxib', 'tramadol', 'aspirin'],
-    ปวดหัว: ['paracetamol', 'ibuprofen'],
-    ลดไข้: ['paracetamol', 'ibuprofen'],
-    พารา: ['paracetamol'],
-    ความดัน: ['amlodipine', 'enalapril', 'losartan', 'hydrochlorothiazide', 'metoprolol', 'atenolol'],
-    เบาหวาน: ['metformin', 'glipizide', 'pioglitazone'],
-    น้ำตาล: ['metformin', 'glipizide', 'pioglitazone'],
-    ไขมัน: ['simvastatin', 'atorvastatin'],
-    คอเลสเตอรอล: ['simvastatin', 'atorvastatin'],
-    กระเพาะ: ['omeprazole'],
-    แสบท้อง: ['omeprazole'],
-    ลดกรด: ['omeprazole'],
-    ขับปัสสาวะ: ['furosemide', 'spironolactone', 'hydrochlorothiazide'],
-    บวม: ['furosemide'],
-    หัวใจ: ['digoxin', 'amiodarone', 'metoprolol'],
-    เลือดอุดตัน: ['aspirin', 'warfarin', 'clopidogrel'],
-    ลิ่มเลือด: ['aspirin', 'warfarin', 'clopidogrel'],
-    ไทรอยด์: ['levothyroxine'],
-    กระดูก: ['alendronate', 'calcium'],
-    แคลเซียม: ['calcium'],
-    สมุนไพร: ['ginkgo', 'ginseng'],
-    แปะก๊วย: ['ginkgo'],
-    โสม: ['ginseng'],
-  };
-
-  const matchedSynonymIds = Object.keys(synonymMap)
-    .filter((key) => normalized.includes(key))
-    .flatMap((key) => synonymMap[key]);
-
-  const terms = normalized.split(/\s+/).filter(Boolean);
-
-  return medicines
-    .map((item, index) => {
-      const nameTh = normalizeMedicineSearchText(item.nameTh);
-      const nameEn = normalizeMedicineSearchText(item.nameEn);
-      const id = normalizeMedicineSearchText(item.id);
-      const category = normalizeMedicineSearchText(item.category);
-      const description = normalizeMedicineSearchText(item.description ?? '');
-      const searchableText = [nameTh, nameEn, id, category, description].join(' ');
-
-      const matchesSearch = terms.every((term) => searchableText.includes(term));
-      const matchesSynonym = matchedSynonymIds.includes(item.id);
-
-      if (!matchesSearch && !matchesSynonym) return null;
-
-      let rank = 4;
-      if (matchesSynonym) rank = 0;
-      else if ([nameTh, nameEn, id].some((value) => value === normalized)) rank = 1;
-      else if ([nameTh, nameEn, id].some((value) => value.startsWith(normalized))) rank = 2;
-      else if ([nameTh, nameEn, id, category].some((value) => value.includes(normalized))) rank = 3;
-
-      return { item, rank, index };
-    })
-    .filter((result): result is { item: MedicineDefinition; rank: number; index: number } => Boolean(result))
-    .sort((a, b) => a.rank - b.rank || a.index - b.index)
-    .map((result) => result.item);
+export function searchMedicines(query: string): MedicineDefinition[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return medicines;
+  return medicines.filter((m) =>
+    m.nameEn.toLowerCase().includes(q) ||
+    m.nameTh.toLowerCase().includes(q) ||
+    m.category.toLowerCase().includes(q) ||
+    (m.categoryEn && m.categoryEn.toLowerCase().includes(q)) ||
+    m.description.toLowerCase().includes(q) ||
+    (m.descriptionEn && m.descriptionEn.toLowerCase().includes(q))
+  );
 }

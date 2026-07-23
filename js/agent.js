@@ -1,4 +1,4 @@
-// YaCheck — ระบบผู้ช่วย AI อัจฉริยะ (Care Agent Web Prototype)
+// MaCheck — ระบบผู้ช่วย AI อัจฉริยะ (Care Agent Web Prototype)
 // พัฒนาด้วยจาวาสคริปต์ดิบ (Vanilla JS) สำหรับทดสอบระบบจำลองภายในเบราว์เซอร์
 
 const Agent = {
@@ -7,7 +7,7 @@ const Agent = {
     runStatus: 'idle', // 'idle' | 'loading_snapshot' | 'running_rules' | 'calling_llm' | 'validating_evidence' | 'completed' | 'failed'
     currentStepIndex: 0,
     outageMode: false, // โหมดจำลองระบบล้มเหลว
-    systemPrompt: `คุณคือผู้ช่วย AI ดูแลสุขภาพ (YaCheck Care Agent) หน้าที่หลักคือสรุปประวัติสุขภาพ ยาในตู้ ตารางการทานยา และวิเคราะห์ความสม่ำเสมอในการทานยา (Adherence)
+    systemPrompt: `คุณคือผู้ช่วย AI ดูแลสุขภาพ (MaCheck Care Agent) หน้าที่หลักคือสรุปประวัติสุขภาพ ยาในตู้ ตารางการทานยา และวิเคราะห์ความสม่ำเสมอในการทานยา (Adherence)
 หลักการสำคัญ:
 1. ให้ข้อมูลตามจริงจาก Snapshot ข้อมูลคนไข้เท่านั้น ห้ามแต่งข้อมูลขึ้นมาเอง (No Hallucination)
 2. หากพบความเสี่ยงหรือข้อมูลไม่ครบถ้วน ให้เตือนและแนะนำให้ปรึกษาแพทย์หรือเภสัชกร
@@ -15,7 +15,7 @@ const Agent = {
     selectedModel: 'meta/llama-3.1-70b-instruct',
     temperature: 0.2,
     messages: [
-      { sender: 'agent', text: 'สวัสดีครับ ผมคือผู้ช่วย AI เช็คสุขภาพและยา (YaCheck Care Agent) ยินดีต้อนรับเข้าสู่ระบบครับ คุณสามารถกดเริ่มวิเคราะห์ประวัติสุขภาพ หรือพิมพ์คุยสอบถามข้อมูลเกี่ยวกับยาและร่างกายของคุณได้จากกล่องข้อความด้านล่างครับ' }
+      { sender: 'agent', text: 'สวัสดีครับ ผมคือผู้ช่วย AI เช็คสุขภาพและยา (MaCheck Care Agent) ยินดีต้อนรับเข้าสู่ระบบครับ คุณสามารถกดเริ่มวิเคราะห์ประวัติสุขภาพ หรือพิมพ์คุยสอบถามข้อมูลเกี่ยวกับยาและร่างกายของคุณได้จากกล่องข้อความด้านล่างครับ' }
     ],
     isChatLoading: false,
     lastRunSnapshot: null,
@@ -204,7 +204,7 @@ const Agent = {
 
           let personalizedAdvice = '';
           try {
-            const contextPrompt = `คุณคือผู้ช่วย AI ดูแลสุขภาพ (YaCheck Care Agent)
+            const contextPrompt = `คุณคือผู้ช่วย AI ดูแลสุขภาพ (MaCheck Care Agent)
 ข้อมูลคนไข้ปัจจุบัน:
 - ชื่อคนไข้: ${snapshot.user.name}
 - ยาในตู้ยา: ${snapshot.medicines.map(m => `- ${m.customName || m.medicineId} (${m.dosageMg}mg) [${m.status === 'stopped' ? 'หยุดใช้' : 'กำลังใช้'}]`).join('\n')}
@@ -321,7 +321,7 @@ const Agent = {
       completeness: 100,
       updatedAt: new Date().toISOString(),
       evidenceRefs: [
-        { type: 'clinical_rule', id: 'MedicineDB.interactions', description: 'ฐานข้อมูลอันตรกิริยาระหว่างยาของระบบ YaCheck' }
+        { type: 'clinical_rule', id: 'MedicineDB.interactions', description: 'ฐานข้อมูลอันตรกิริยาระหว่างยาของระบบ MaCheck' }
       ]
     });
 
@@ -470,7 +470,7 @@ const Agent = {
       }
 
       // เตรียมชุดข้อความสำหรับส่งให้ LLM
-      const contextPrompt = `คุณคือผู้ช่วย AI ดูแลสุขภาพ (YaCheck Care Agent)
+      const contextPrompt = `คุณคือผู้ช่วย AI ดูแลสุขภาพ (MaCheck Care Agent)
 ข้อมูลคนไข้ปัจจุบัน:
 - ชื่อคนไข้: ${snapshot.user.name}
 - ยาในตู้ยา: ${snapshot.medicines.map(m => `- ${m.customName || m.medicineId} (${m.dosageMg}mg) ทานช่วง ${m.timeSlots?.join(', ')} (สถานะ: ${m.status})`).join('\n')}
@@ -610,12 +610,12 @@ ${this.state.systemPrompt}
           <div style="background-color: rgba(19, 61, 51, 0.08); width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
             <div style="color: var(--color-primary); transform: scale(1.8);">${Utils.getIconSvg('sparkles')}</div>
           </div>
-          <h2 style="font-family: 'Prompt', sans-serif; font-weight: 700; color: var(--color-primary); font-size: 1.6rem; margin-bottom: 8px;">YaCheck Care Agent</h2>
+          <h2 style="font-family: 'Prompt', sans-serif; font-weight: 700; color: var(--color-primary); font-size: 1.6rem; margin-bottom: 8px;">MaCheck Care Agent</h2>
           <p class="text-secondary" style="font-size: 1rem; line-height: 1.5; max-width: 480px; margin: 0 auto var(--space-xl);">
-            ระบบวิเคราะห์ประวัติผู้ป่วย ตารางเวลาทานยา และวิเคราะห์ยาตีกันเพื่อประเมินความปลอดภัยร่วมกับ AI ก่อนส่งแผนให้บุคลากรการแพทย์
+            ${(typeof I18n !== 'undefined' && I18n.getLang() === 'en') ? 'AI-powered medication safety, dosage schedule, and drug interaction analysis engine.' : 'ระบบวิเคราะห์ประวัติผู้ป่วย ตารางเวลาทานยา และวิเคราะห์ยาตีกันเพื่อประเมินความปลอดภัยร่วมกับ AI ก่อนส่งแผนให้บุคลากรการแพทย์'}
           </p>
           <button class="btn btn-primary" onclick="Agent.startRun()" style="width: 100%; max-width: 260px; height: 50px; font-size: 1.1rem; border-radius: 25px; box-shadow: var(--shadow-md);">
-            เริ่มวิเคราะห์ประวัติสุขภาพ
+            ${(typeof I18n !== 'undefined' && I18n.getLang() === 'en') ? 'Start Health Safety Analysis' : 'เริ่มวิเคราะห์ประวัติสุขภาพ'}
           </button>
         </div>
       `;
@@ -802,7 +802,7 @@ ${this.state.systemPrompt}
       <div class="agent-chat-container card" style="padding:16px; margin-top:var(--space-xl); border-radius:var(--radius-lg); background:var(--color-surface); border:1.5px solid var(--color-border); box-shadow:var(--shadow-md);">
         <div style="display:flex; align-items:center; gap:8px; border-bottom:1.5px solid var(--color-border); padding-bottom:10px; margin-bottom:12px;">
           <div style="color:var(--color-primary);">${Utils.getIconSvg('sparkles', 'icon-md')}</div>
-          <h3 style="font-family:'Prompt',sans-serif; font-size:1.15rem; font-weight:700; color:var(--color-primary); margin:0;">ทดลองคุยกับ YaCheck Care Agent</h3>
+          <h3 style="font-family:'Prompt',sans-serif; font-size:1.15rem; font-weight:700; color:var(--color-primary); margin:0;">ทดลองคุยกับ MaCheck Care Agent</h3>
         </div>
 
         <div class="agent-chat-body" style="height:250px; overflow-y:auto; border-radius:var(--radius-sm); background:var(--color-bg); padding:12px; margin-bottom:12px; border:1px solid var(--color-border); display:flex; flex-direction:column; gap:10px;">

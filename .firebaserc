@@ -1,7 +1,7 @@
 {
   "projects": {
-    "default": "macheck-app-dev",
-    "dev": "macheck-app-dev",
-    "prod": "macheck-app-prod"
+    "default": "gen-lang-client-0740402744",
+    "dev": "gen-lang-client-0740402744",
+    "prod": "gen-lang-client-0740402744"
   }
 }

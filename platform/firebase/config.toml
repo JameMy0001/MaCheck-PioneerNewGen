@@ -1,4 +1,4 @@
-project_id = "yacheck-macheck-shared"
+project_id = "gen-lang-client-0740402744"
 
 [api]
 enabled = true
@@ -15,7 +15,7 @@ enabled = false
 
 [auth]
 enabled = true
-site_url = "yacheck://auth"
+site_url = "macheck://auth"
 additional_redirect_urls = ["macheck://auth"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true

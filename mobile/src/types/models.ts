@@ -13,6 +13,7 @@ export interface UserProfile {
   allergies: string[];
   weightKg?: number;
   fontScale: FontScale;
+  language?: 'th' | 'en';
   soundEnabled: boolean;
   emergencyName: string;
   emergencyPhone: string;
@@ -23,8 +24,10 @@ export interface MedicineDefinition {
   nameEn: string;
   nameTh: string;
   category: string;
+  categoryEn?: string;
   dosages: number[];
   description: string;
+  descriptionEn?: string;
 }
 
 export interface CabinetMedicine {

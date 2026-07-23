@@ -57,7 +57,7 @@ def fetch_page(record: dict[str, object]) -> dict[str, object]:
         "source_url": url,
     }
     try:
-        request = Request(safe_url(url), headers={"User-Agent": "YaCheck food-evidence-audit/1.0"})
+        request = Request(safe_url(url), headers={"User-Agent": "MaCheck food-evidence-audit/1.0"})
         with urlopen(request, timeout=45) as response:
             payload = response.read()
         reader = PdfReader(BytesIO(payload))

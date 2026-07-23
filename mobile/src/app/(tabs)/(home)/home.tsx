@@ -7,10 +7,11 @@ import { FeatureIcon } from '@/components/feature-icon';
 import { PrimaryButton, SectionCard, useFontMultiplier } from '@/components/ui';
 import { colors, slots } from '@/constants/theme';
 import { getMedicine } from '@/data/medicine-db';
-import { formatMedicineDose, formatMedicineDoseForSpeech } from '@/utils/medicine-dose';
+import { formatMedicineDose } from '@/utils/medicine-dose';
 import { getAdherence, useAppStore } from '@/store/use-app-store';
 import type { ScheduleSlot } from '@/types/models';
 import { getTodayKey } from '@/utils/safety';
+import { t, getSlotLabel, getMealTimingLabel } from '@/utils/i18n';
 
 const slotOrder = Object.keys(slots) as ScheduleSlot[];
 
@@ -27,12 +28,6 @@ function formatSlotTime(slot: ScheduleSlot) {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
-function mealTimingLabel(value: 'before' | 'after' | 'any') {
-  if (value === 'before') return 'ก่อนอาหาร';
-  if (value === 'after') return 'หลังอาหาร';
-  return 'ไม่จำกัดมื้อ';
-}
-
 export default function HomeScreen() {
   const { addedMedicineId } = useLocalSearchParams<{ addedMedicineId?: string }>();
   const profile = useAppStore((state) => state.profile);
@@ -41,6 +36,8 @@ export default function HomeScreen() {
   const waterByDate = useAppStore((state) => state.waterByDate);
   const toggleTaken = useAppStore((state) => state.toggleTaken);
   const recordWater = useAppStore((state) => state.recordWater);
+  const lang = profile.language || 'th';
+
   const multiplier = useFontMultiplier();
   const timeColumnWidth = 64 * multiplier;
   const today = getTodayKey();
@@ -59,18 +56,18 @@ export default function HomeScreen() {
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 36 }}>
       <View style={{ gap: 4 }}>
-        <Text selectable style={{ color: colors.muted, fontSize: 15 * multiplier }}>สวัสดี</Text>
+        <Text selectable style={{ color: colors.muted, fontSize: 15 * multiplier }}>{t('greeting', lang)}</Text>
         <Text selectable style={{ color: colors.text, fontSize: 29 * multiplier, fontWeight: '900' }}>{profile.displayName || profile.username}</Text>
       </View>
 
       {addedMedicine ? (
         <View accessibilityRole="alert" style={{ backgroundColor: colors.successSoft, borderColor: colors.success, borderWidth: 1, borderRadius: 16, borderCurve: 'continuous', padding: 14, gap: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-            <FeatureIcon name="success" size={30} accessibilityLabel="สำเร็จ" />
-            <Text selectable style={{ color: colors.success, fontSize: 17 * multiplier, fontWeight: '900' }}>เพิ่มยาเรียบร้อยแล้ว</Text>
+            <FeatureIcon name="success" size={30} accessibilityLabel={t('save_success', lang)} />
+            <Text selectable style={{ color: colors.success, fontSize: 17 * multiplier, fontWeight: '900' }}>{t('added_med_success', lang)}</Text>
           </View>
           <Text selectable style={{ color: colors.text, fontSize: 14 * multiplier, lineHeight: 21 * multiplier }}>
-            {addedMedicine.customName || getMedicine(addedMedicine.medicineId)?.nameTh || addedMedicine.medicineId} จะแสดงในช่วง {addedMedicine.schedules.map((slot) => slots[slot].label).join(', ')}
+            {addedMedicine.customName || (lang === 'en' ? getMedicine(addedMedicine.medicineId)?.nameEn : getMedicine(addedMedicine.medicineId)?.nameTh) || addedMedicine.medicineId} {t('added_med_schedule_prefix', lang)} {addedMedicine.schedules.map((slot) => getSlotLabel(slot, lang)).join(', ')}
           </Text>
         </View>
       ) : null}
@@ -78,32 +75,32 @@ export default function HomeScreen() {
       <SectionCard>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <View style={{ flex: 1, gap: 4 }}>
-            <Text selectable style={{ color: colors.muted, fontSize: 14 * multiplier }}>ความสม่ำเสมอวันนี้</Text>
+            <Text selectable style={{ color: colors.muted, fontSize: 14 * multiplier }}>{t('today_adherence', lang)}</Text>
             <Text selectable style={{ color: adherence >= 80 ? colors.success : colors.warning, fontSize: 36 * multiplier, fontWeight: '900', fontVariant: ['tabular-nums'] }}>{adherence}%</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: colors.primarySoft, borderRadius: 16, borderCurve: 'continuous', paddingHorizontal: 12, paddingVertical: 9 }}>
-            <FeatureIcon name="water-tracking" size={30} accessibilityLabel="การดื่มน้ำ" />
-            <Text selectable style={{ color: colors.primaryDark, fontWeight: '800', fontSize: 16 * multiplier }}>{water}/8 แก้ว</Text>
+            <FeatureIcon name="water-tracking" size={30} accessibilityLabel={t('water_tracking', lang)} />
+            <Text selectable style={{ color: colors.primaryDark, fontWeight: '800', fontSize: 16 * multiplier }}>{water}/8 {t('water_progress', lang)}</Text>
           </View>
         </View>
-        <PrimaryButton label="บันทึกดื่มน้ำ 1 แก้ว" tone="neutral" icon={<FeatureIcon name="water-tracking" size={28} />} onPress={recordWater} disabled={water >= 12} />
+        <PrimaryButton label={t('record_water_btn', lang)} tone="neutral" icon={<FeatureIcon name="water-tracking" size={28} />} onPress={recordWater} disabled={water >= 12} />
       </SectionCard>
 
-
       <View style={{ gap: 8 }}>
-        <Text selectable style={{ color: colors.text, fontSize: 22 * multiplier, fontWeight: '900' }}>ตารางยาวันนี้</Text>
-        <Text selectable style={{ color: colors.muted, fontSize: 14 * multiplier }}>แตะช่องสี่เหลี่ยมเมื่อรับประทานยาแล้ว</Text>
+        <Text selectable style={{ color: colors.text, fontSize: 22 * multiplier, fontWeight: '900' }}>{t('today_schedule', lang)}</Text>
+        <Text selectable style={{ color: colors.muted, fontSize: 14 * multiplier }}>{t('tap_checkbox_hint', lang)}</Text>
       </View>
 
       <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 20, borderCurve: 'continuous', overflow: 'hidden' }}>
         {slotOrder.map((slot, index) => {
-          const period = slots[slot];
+          const periodIcon = slots[slot].icon;
+          const slotLabel = getSlotLabel(slot, lang);
           const medicines = activeCabinet.filter((item) => item.schedules.includes(slot));
           const isCurrent = slot === currentSlot;
           return (
             <View
               key={slot}
-              accessibilityLabel={`${formatSlotTime(slot)} ช่วง${period.label}${isCurrent ? ' ช่วงเวลาปัจจุบัน' : ''}`}
+              accessibilityLabel={`${formatSlotTime(slot)} ${slotLabel}${isCurrent ? ' ' + t('now', lang) : ''}`}
               style={{
                 flexDirection: 'row',
                 gap: 12,
@@ -131,32 +128,33 @@ export default function HomeScreen() {
               <View style={{ flex: 1, gap: 10 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <FeatureIcon name={period.icon} size={30} accessibilityLabel={`ช่วง${period.label}`} />
-                    <Text selectable style={{ color: colors.text, fontSize: 17 * multiplier, fontWeight: '900' }}>{period.label}</Text>
+                    <FeatureIcon name={periodIcon} size={30} accessibilityLabel={slotLabel} />
+                    <Text selectable style={{ color: colors.text, fontSize: 17 * multiplier, fontWeight: '900' }}>{slotLabel}</Text>
                   </View>
-                  {isCurrent ? <Text style={{ color: colors.primaryDark, backgroundColor: colors.surface, borderRadius: 999, overflow: 'hidden', paddingHorizontal: 9, paddingVertical: 4, fontSize: 12 * multiplier, fontWeight: '800' }}>ตอนนี้</Text> : null}
+                  {isCurrent ? <Text style={{ color: colors.primaryDark, backgroundColor: colors.surface, borderRadius: 999, overflow: 'hidden', paddingHorizontal: 9, paddingVertical: 4, fontSize: 12 * multiplier, fontWeight: '800' }}>{t('now', lang)}</Text> : null}
                 </View>
 
                 {medicines.length === 0 ? (
-                  <Text selectable style={{ color: colors.muted, fontSize: 14 * multiplier }}>ยังไม่มียาที่กำหนดไว้</Text>
+                  <Text selectable style={{ color: colors.muted, fontSize: 14 * multiplier }}>{t('no_meds_in_slot', lang)}</Text>
                 ) : medicines.map((item) => {
                   const definition = getMedicine(item.medicineId);
                   const done = Boolean(taken[`${item.id}:${slot}`]);
+                  const medName = item.customName || (lang === 'en' ? definition?.nameEn : definition?.nameTh) || item.medicineId;
                   return (
                     <Pressable
                       key={item.id}
-                      accessibilityLabel={`${item.customName || definition?.nameTh || item.medicineId} ${formatMedicineDoseForSpeech(item)} ${mealTimingLabel(item.mealTiming)}`}
+                      accessibilityLabel={`${medName} ${formatMedicineDose(item, lang)} ${getMealTimingLabel(item.mealTiming, lang)}`}
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: done }}
                       onPress={() => markTaken(item.id, slot)}
                       style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 11, opacity: pressed ? 0.7 : 1 })}
                     >
                       {done
-                        ? <FeatureIcon name="success" size={30} accessibilityLabel="ทานแล้ว" />
+                        ? <FeatureIcon name="success" size={30} accessibilityLabel={t('taken_status', lang)} />
                         : <View style={{ width: 30, height: 30, borderRadius: 9, borderCurve: 'continuous', borderWidth: 2, borderColor: colors.border, backgroundColor: colors.surface }} />}
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text selectable style={{ color: done ? colors.muted : colors.text, fontWeight: '800', fontSize: 16 * multiplier, textDecorationLine: done ? 'line-through' : 'none' }}>{item.customName || definition?.nameTh || item.medicineId}</Text>
-                        <Text selectable style={{ color: colors.muted, fontSize: 13 * multiplier }}>{formatMedicineDose(item)} · {mealTimingLabel(item.mealTiming)}</Text>
+                        <Text selectable style={{ color: done ? colors.muted : colors.text, fontWeight: '800', fontSize: 16 * multiplier, textDecorationLine: done ? 'line-through' : 'none' }}>{medName}</Text>
+                        <Text selectable style={{ color: colors.muted, fontSize: 13 * multiplier }}>{formatMedicineDose(item, lang)} · {getMealTimingLabel(item.mealTiming, lang)}</Text>
                       </View>
                     </Pressable>
                   );

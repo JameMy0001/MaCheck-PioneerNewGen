@@ -22,7 +22,7 @@ Deno.serve(async (request) => {
     const { data: existing } = await admin.rpc('server_auth_lookup_handle', { p_handle: username }).maybeSingle();
     if (existing) return json({ error: 'Username is unavailable.' }, 409);
 
-    const internalDomain = Deno.env.get('AUTH_INTERNAL_DOMAIN') || 'auth.yacheck.invalid';
+    const internalDomain = Deno.env.get('AUTH_INTERNAL_DOMAIN') || 'auth.macheck.invalid';
     const internalEmail = `${crypto.randomUUID()}@${internalDomain}`;
     const recoveryCode = createRecoveryCode();
     const { data: created, error: createError } = await admin.auth.admin.createUser({

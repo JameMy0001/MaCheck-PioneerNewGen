@@ -1,4 +1,4 @@
-// ตัวควบคุมและจำลองเดโมสำหรับหน้าพรีเซนต์ (YaCheck High-Tech Pitch Portal Logic)
+// ตัวควบคุมและจำลองเดโมสำหรับหน้าพรีเซนต์ (MaCheck High-Tech Pitch Portal Logic)
 
 const PitchApp = {
   currentSlide: 0,
@@ -1019,7 +1019,7 @@ const PitchApp = {
 
     btnSendMsg.addEventListener('click', async () => {
       const token = tokenInput.value.trim();
-      const message = "📢 [YaCheck Pitch] ขอรายงานความคืบหน้า: คนไข้ทานยาประเมินความปลอดภัยมื้อเช้าเรียบร้อยแล้วค่ะ";
+      const message = "📢 [MaCheck Pitch] ขอรายงานความคืบหน้า: คนไข้ทานยาประเมินความปลอดภัยมื้อเช้าเรียบร้อยแล้วค่ะ";
 
       if (!token) {
         this.logConsole('❌ โปรดระบุ LINE Notify Token ในการตั้งค่าเพื่อทดสอบส่งจริง', 'err');

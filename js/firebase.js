@@ -1,4 +1,4 @@
-// YaCheck — Firebase Firestore Client สำหรับโปรเจกต์ gen-lang-client-0740402744
+// MaCheck — Firebase Firestore Client สำหรับโปรเจกต์ gen-lang-client-0740402744
 // ใช้งานผ่าน Firestore REST API โดยตรง เพื่อรองรับ Vanilla JS แบบไม่ต้องลง Build Tool
 
 const FirebaseDB = {

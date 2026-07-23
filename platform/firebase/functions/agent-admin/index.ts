@@ -282,7 +282,7 @@ Deno.serve(async (req) => {
       await admin.from("agent_config_audit").insert({
         action: "API_KEY_ROTATED",
         config_after: {
-          secretName: "yacheck_nvidia_api_key",
+          secretName: "macheck_nvidia_api_key",
           fingerprint,
           storedIn: "supabase_vault",
         },
@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
         success: true,
         fingerprint,
         message:
-          "API key rotated. The previous value cannot be viewed from YaCheck Admin.",
+          "API key rotated. The previous value cannot be viewed from MaCheck Admin.",
       });
     }
 

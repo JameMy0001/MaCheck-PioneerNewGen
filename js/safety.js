@@ -270,7 +270,7 @@ const Safety = {
         </div>
 
         <p class="text-secondary" style="font-size:0.9rem; line-height:1.4; margin-bottom: 4px;">
-          คู่ยาตีกันที่ได้รับการทบทวนทางเภสัชกรรมคลินิกแล้วในฐานข้อมูลออฟไลน์ YaCheck (รวมทั้งหมด ${list.length} คู่)
+          คู่ยาตีกันที่ได้รับการทบทวนทางเภสัชกรรมคลินิกแล้วในฐานข้อมูลออฟไลน์ MaCheck (รวมทั้งหมด ${list.length} คู่)
         </p>
 
         <div style="height: 380px; overflow-y: auto; padding-right: 2px;">
