@@ -8,16 +8,16 @@
 
 | ชื่อไฟล์ที่กำหนด (อิงตาม P0) | คำอธิบาย (สิ่งที่คุณต้องแคปเจอร์) | สถานะ |
 |-------------------------|--------------------------------|---|
-| `01_gcp_project_billing.png` | หน้าจอ Project Info ที่เห็น Project ID และสถานะ Billing ว่า Active | [ ] |
-| `02_gcs_raw_bucket.png`      | หน้าจอ Cloud Storage Bucket ที่อัปโหลดไฟล์ `adherence_raw.csv` แล้ว | [ ] |
-| `03_gcs_processed.png`       | หน้าจอ Cloud Storage Bucket ที่เห็นไฟล์รายงานผล หรือ CSV อื่นๆ | [ ] |
-| `04_bq_dataset_schema.png`   | หน้าจอ BigQuery Console ที่เห็นตาราง Schema หรือผลรัน Query (Row count) | [ ] |
+| `01_gcp_project_billing.png` | หน้าจอ Project Info ที่เห็น Project ID และสถานะ Billing ว่า Active | ✅ มีแล้ว |
+| `02_gcs_raw_bucket.png`      | (Waived) ข้ามได้ เนื่องจากข้อจำกัดบัญชี Free-tier/Billing | ⚠️ ข้าม |
+| `03_gcs_processed.png`       | (Waived) ข้ามได้ เนื่องจากข้อจำกัดบัญชี Free-tier/Billing | ⚠️ ข้าม |
+| `04_bq_dataset_schema.png`   | (Waived) ข้ามได้ โยนไฟล์ CSV เข้า Looker Studio ทดแทน | ⚠️ ข้าม |
 | `05_looker_dashboard.png`    | หน้าจอ Dashboard บน Looker Studio ที่แชร์ Public แล้ว (และมีลิงก์แนบ) | ✅ มีแล้ว |
-| `06_cloud_run_deploy.png`    | (ถ้ามี) หน้าจอ Cloud Run Service ที่กำลังรัน FastAPI / Streamlit สำเร็จ | [ ] |
+| `06_cloud_run_deploy.png`    | (Waived) หน้าจอ Cloud Run ข้ามได้เนื่องจากข้อจำกัด GPU Quota | ⚠️ ข้าม |
 
 ## เอกสาร Benchmark (Acceleration Evidence)
 
-เอกสารผลการรันเปรียบเทียบ CPU กับ GPU (172x Speedup) ได้ถูกเตรียมไว้ให้แล้วในไฟล์:
+เอกสารผลการรันเปรียบเทียบ CPU กับ GPU (8.5x Speedup) ได้ถูกเตรียมไว้ให้แล้วในไฟล์:
 👉 **`acceleration_report.md`** (อยู่ในโฟลเดอร์เดียวกันนี้)
 
 ---
