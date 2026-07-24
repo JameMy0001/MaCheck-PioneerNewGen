@@ -34,6 +34,9 @@ Cloud Run Job + NVIDIA L4 GPU + RAPIDS/cuDF
    └──► Firestore Write-back (users/{uid}/riskSummary) ──► Mobile Alert + Gemini Enterprise Agent Platform
 ```
 
+> 💡 **Hackathon Note (Billing Constraint):** 
+> The architecture above represents the intended production pipeline. During this hackathon, due to Google Cloud free-tier/student billing restrictions, the provisioning of Cloud Storage buckets and BigQuery datasets was blocked. To demonstrate our capabilities, the NVIDIA RAPIDS (cuDF) processing was benchmarked using our local pipeline, and the output `caregiver_priority_queue.csv` was directly ingested into Looker Studio for visualization. All other services (Firebase Auth, Firestore, Cloud Functions, and Gemini AI) are fully deployed on GCP.
+
 ---
 
 ## 📁 Project Structure
