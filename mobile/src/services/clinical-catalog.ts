@@ -1,9 +1,9 @@
 /**
  * Clinical Catalog Service for MaCheck App
- * (Phase 1 Mock - Full Implementation in Phase 2)
+ * (Phase 2 - Firestore Integration)
  */
 
-import { medicines, interactions } from '@/data/medicine-db';
+import { getAppDb } from '@/services/firebase-client';
 import type { MedicineDefinition } from '@/types/models';
 
 export interface ClinicalCatalogRelease {
@@ -18,27 +18,70 @@ export interface ClinicalCatalogRelease {
  * Fetch latest clinical catalog release info
  */
 export async function getLatestCatalogRelease(): Promise<ClinicalCatalogRelease | null> {
-  console.log('[ClinicalCatalog] getLatestCatalogRelease mock used for Phase 1');
-  return {
-    releaseId: 'bundled-v1.0',
-    publishedAt: new Date().toISOString(),
-    reviewedBy: 'MaCheck Pharmacist Board',
-    medicationCount: medicines.length,
-    interactionCount: interactions.length,
-  };
+  try {
+    const db = getAppDb();
+    const snapshot = await db.collection('clinicalReleases')
+      .orderBy('publishedAt', 'desc')
+      .limit(1)
+      .get();
+      
+    if (snapshot.empty) {
+      return null;
+    }
+    
+    const doc = snapshot.docs[0];
+    if (!doc) return null;
+    const data = doc.data();
+    
+    return {
+      releaseId: doc.id,
+      publishedAt: data.publishedAt,
+      reviewedBy: data.reviewedBy || 'System',
+      medicationCount: data.medicationCount || 0,
+      interactionCount: data.interactionCount || 0,
+    };
+  } catch (error) {
+    console.error('[ClinicalCatalog] Failed to fetch latest release:', error);
+    return null;
+  }
 }
 
 /**
- * Fetch medication database from Firestore or fallback to local medicines DB
+ * Fetch medication database from Firestore
  */
 export async function fetchClinicalMedications(): Promise<MedicineDefinition[]> {
-  console.log('[ClinicalCatalog] fetchClinicalMedications mock used for Phase 1');
-  return medicines;
+  try {
+    const db = getAppDb();
+    const snapshot = await db.collection('clinicalMedications').get();
+    
+    if (snapshot.empty) {
+      return [];
+    }
+    
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        nameTh: data.nameTh || '',
+        nameEn: data.nameEn || '',
+        category: data.category || '',
+        categoryEn: data.categoryEn || '',
+        dosages: data.dosages || [],
+        description: data.description || '',
+        descriptionEn: data.descriptionEn || ''
+      } as MedicineDefinition;
+    });
+  } catch (error) {
+    console.error('[ClinicalCatalog] Failed to fetch medications:', error);
+    return [];
+  }
 }
 
 /**
  * Refresh clinical catalog cache
  */
 export async function refreshClinicalCatalog(): Promise<boolean> {
+  // In a full implementation, this might sync data to local SQLite/AsyncStorage
+  console.log('[ClinicalCatalog] Refresh requested');
   return true;
 }
