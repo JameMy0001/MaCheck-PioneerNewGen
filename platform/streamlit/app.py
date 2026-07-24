@@ -151,15 +151,24 @@ with col_left:
     st.subheader("🚨 Priority Queue (Action Required)")
     st.markdown("Patients ranked by immediate risk score requiring caregiver intervention.")
     
-    # Styled dataframe
-    def color_risk(val):
-        color = 'red' if val == 'Critical' else 'orange' if val == 'High' else 'green' if val == 'Low' else 'black'
-        return f'color: {color}; font-weight: bold'
-        
-    styled_df = df.head(15).style.map(color_risk, subset=['Risk Tier'])\
-                    .background_gradient(subset=['Risk Score'], cmap='Reds')
-                    
-    st.dataframe(styled_df, use_container_width=True, height=400)
+    # Use native Streamlit dataframe instead of Pandas Styler to avoid jinja2 cloud errors
+    st.dataframe(
+        df.head(15), 
+        use_container_width=True, 
+        height=400,
+        column_config={
+            "Risk Score": st.column_config.ProgressColumn(
+                "Risk Score",
+                help="Higher score means higher risk",
+                format="%.1f",
+                min_value=0,
+                max_value=100,
+            ),
+            "Risk Tier": st.column_config.TextColumn(
+                "Risk Tier"
+            )
+        }
+    )
 
 with col_right:
     st.subheader("📊 Severity Distribution")
