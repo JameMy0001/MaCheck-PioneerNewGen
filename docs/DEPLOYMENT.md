@@ -51,6 +51,8 @@
 
 ## 3. Google Cloud Storage & BigQuery Setup
 
+> ⚠️ **Hackathon Billing Constraint Note**: If you are deploying on a Google Cloud Free Tier / Student account without an attached credit card, you will NOT be able to provision Cloud Storage or BigQuery. You can bypass this step and ingest CSV files directly into Looker Studio for prototyping.
+
 1. Create GCS Analytics Bucket:
    ```bash
    gcloud storage buckets create gs://macheck-analytics-raw --location=asia-southeast1
@@ -65,6 +67,8 @@
 ---
 
 ## 4. NVIDIA RAPIDS Cloud Run GPU Job Deployment
+
+> ⚠️ **Hackathon Billing Constraint Note**: Cloud Run jobs with NVIDIA L4 GPUs require sufficient quota and a linked billing account. For the hackathon demonstration, this pipeline can be executed locally, and the resulting `caregiver_priority_queue.csv` can be uploaded to Looker Studio.
 
 1. Create Artifact Registry repository:
    ```bash
