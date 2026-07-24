@@ -12,7 +12,8 @@ Powered by **Google Cloud Platform (Firebase, GCS, BigQuery, Cloud Run, Gemini E
 | Mobile App (React Native) | Looker Dashboard (Prototype) | 
 |:---:|:---:|
 | ![MaCheck Mobile App](docs/assets/mobile_app.png) | ![MaCheck Caregiver Dashboard](docs/assets/looker_dashboard.png) |
-| *Example of risk alerts and AI recommendations from Gemini Enterprise* | *Caregiver Priority Queue (Identifying high-risk patients for immediate follow-up)https://datastudio.google.com/reporting/5ccd62cf-aa09-4b9a-88ed-06b21be5f724* |
+| *Example of risk alerts and AI recommendations from Gemini Enterprise* | *Caregiver Priority Queue (Identifying high-risk patients for immediate follow-up)
+https://datastudio.google.com/reporting/5ccd62cf-aa09-4b9a-88ed-06b21be5f724* |
 
 ---
 
