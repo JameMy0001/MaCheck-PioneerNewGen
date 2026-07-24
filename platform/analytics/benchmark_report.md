@@ -8,9 +8,8 @@
 
 | Engine Mode | Execution Time | Speedup Factor |
 |-------------|----------------|----------------|
-| **Pure Python CPU (Baseline)** | 2,145.30 ms | 1.0x |
-| **Pandas CPU DataFrame** | 412.50 ms | 5.2x |
-| **NVIDIA cuDF (GPU DataFrame)** | **12.45 ms** | **172.3x** |
+| **Pandas CPU DataFrame (Baseline)** | ~105.82 ms | 1.0x |
+| **NVIDIA cuDF (GPU DataFrame)** | **12.45 ms** | **8.5x** |
 
 ### Benchmark Details
 - **Total Processed Records:** 180,000
