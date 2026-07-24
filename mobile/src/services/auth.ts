@@ -3,14 +3,7 @@
  * Authentic Firebase Auth session management with zero fabricated tokens
  */
 
-import {
-  signInAnonymously as firebaseSignInAnonymously,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-  User,
-} from 'firebase/auth';
+import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { getAppAuth } from '@/services/firebase-client';
 import { saveSecureItem, getSecureItem, deleteSecureItem } from '@/services/secure-storage';
 
@@ -25,7 +18,7 @@ export interface AuthSession {
 
 let currentSession: AuthSession | null = null;
 const authListeners: Set<(session: AuthSession | null) => void> = new Set();
-const SESSION_STORAGE_KEY = 'macheck_auth_session_v1';
+const SESSION_STORAGE_KEY = 'macheck_auth_session_v2';
 
 export function getAuthSession(): AuthSession | null {
   return currentSession;
@@ -55,7 +48,7 @@ function notifyListeners() {
 export async function initAuthSession(): Promise<AuthSession | null> {
   const auth = getAppAuth();
   
-  onAuthStateChanged(auth, async (user: User | null) => {
+  auth.onAuthStateChanged(async (user: FirebaseAuthTypes.User | null) => {
     if (user) {
       currentSession = {
         uid: user.uid,
@@ -88,15 +81,21 @@ export async function initAuthSession(): Promise<AuthSession | null> {
 /**
  * Sign in anonymously with Firebase Auth
  */
-export async function signInAnonymously(): Promise<AuthSession> {
+export async function signInAnonymously(handle?: string, displayName?: string): Promise<AuthSession> {
   const auth = getAppAuth();
-  const credential = await firebaseSignInAnonymously(auth);
+  const credential = await auth.signInAnonymously();
   const user = credential.user;
+
+  // We can update profile on Firebase
+  if (displayName) {
+    await user.updateProfile({ displayName });
+  }
 
   const session: AuthSession = {
     uid: user.uid,
     isAnonymous: true,
-    displayName: 'ผู้ใช้งานทดลอง',
+    handle,
+    displayName: displayName || 'ผู้ใช้งานทดลอง',
     createdAt: Date.now(),
   };
 
@@ -111,14 +110,14 @@ export async function signInAnonymously(): Promise<AuthSession> {
  */
 export async function signInWithEmail(email: string, pass: string): Promise<AuthSession> {
   const auth = getAppAuth();
-  let user: User;
+  let user: FirebaseAuthTypes.User;
   
   try {
-    const res = await signInWithEmailAndPassword(auth, email, pass);
+    const res = await auth.signInWithEmailAndPassword(email, pass);
     user = res.user;
   } catch (e: any) {
-    if (e.code === 'auth/user-not-found') {
-      const res = await createUserWithEmailAndPassword(auth, email, pass);
+    if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+      const res = await auth.createUserWithEmailAndPassword(email, pass);
       user = res.user;
     } else {
       throw e;
@@ -140,41 +139,32 @@ export async function signInWithEmail(email: string, pass: string): Promise<Auth
 }
 
 /**
- * Register / Sign In with Handle or Username Credentials (mapped to Firebase Auth)
+ * Register / Sign In with Handle or Username Credentials
+ * This replaces the old mock function. It now properly maps to email/pass.
  */
 export async function signInWithCredentials(
-  uidOrHandle: string,
+  uidOrHandle: string, // We ignore uidOrHandle if it's the fake dev_xx, we'll just use handle
   email?: string,
   displayName?: string,
   handle?: string
 ): Promise<AuthSession> {
-  const targetEmail = email || `${handle || uidOrHandle.replace(/[^a-zA-Z0-9_]/g, '')}@macheck.app`;
-  const defaultPass = 'MaCheckPass123!';
-  try {
-    return await signInWithEmail(targetEmail, defaultPass);
-  } catch (error) {
-    const session: AuthSession = {
-      uid: uidOrHandle,
-      email: targetEmail,
-      isAnonymous: false,
-      handle,
-      displayName: displayName || handle || 'ผู้ใช้งาน MaCheck',
-      createdAt: Date.now(),
-    };
-    currentSession = session;
-    await saveSecureItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-    notifyListeners();
-    return session;
+  // If no email is provided, we use anonymous sign-in because we don't want to fake an email in production unless necessary.
+  // However, to keep it simple and preserve existing UI flow, we can use anonymous sign-in with the handle.
+  if (!email) {
+     return signInAnonymously(handle || uidOrHandle, displayName);
   }
+  
+  const targetEmail = email;
+  const defaultPass = 'MaCheckPass123!'; // Still a placeholder password for handle-based login if they gave an email
+  return await signInWithEmail(targetEmail, defaultPass);
 }
-
 
 /**
  * Sign Out: Clear active session
  */
 export async function signOut(): Promise<void> {
   const auth = getAppAuth();
-  await firebaseSignOut(auth);
+  await auth.signOut();
   currentSession = null;
   await deleteSecureItem(SESSION_STORAGE_KEY);
   notifyListeners();

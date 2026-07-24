@@ -194,16 +194,7 @@ async function invokeAgentFunction(body: Record<string, unknown>, options: Invok
     return lang === 'en' ? (def?.nameEn || item.medicineId) : (def?.nameTh || item.medicineId);
   });
   const activeMedListStr = activeMedNames.length ? activeMedNames.join(', ') : (lang === 'en' ? 'No active medications' : 'ไม่มีรายการยาใช้งานอยู่');
-
   const lowerMsg = message.toLowerCase();
-
-  // Headache query
-  if (/ปวดหัว|ปวดศีรษะ|headache|head pain/i.test(lowerMsg)) {
-    const reply = lang === 'en'
-      ? `[Headache Safety Assessment 🩺]\n• Active Meds: ${activeMedListStr}\n• For mild-to-moderate headache without liver disease or paracetamol allergy, Paracetamol (500 mg) 1 tablet every 4-6 hours may be used as needed (do not exceed 4,000 mg/day).\n• ⚠️ Precaution: If you have a history of stomach ulcers, kidney disease, or bleeding disorders, avoid NSAID pain relievers like Ibuprofen or Diclofenac.\n• 🚨 Red Flags: Seek emergency care immediately if experiencing sudden thunderclap headache, high fever, stiff neck, vision blur, or muscle weakness.`
-      : `[การประเมินอาการปวดศีรษะเบื้องต้น 🩺]\n• ยาที่ใช้อยู่ในตู้: ${activeMedListStr}\n• หากปวดศีรษะเบื้องต้น และไม่มีประวัติแพ้ยา Paracetamol หรือโรคตับ อาจรับประทาน พาราเซตามอล (500 มก.) 1 เม็ด ทุก 4-6 ชั่วโมงเมื่อมีอาการ (ไม่เกิน 4,000 มก./วัน)\n• ⚠️ ข้อควรระวัง: หากมีประวัติโรคกระเพาะอาหาร โรคไต หรือภาวะเลือดออกง่าย ควรหลีกเลี่ยงยาแก้ปวดกลุ่ม NSAIDs (เช่น ไอบูโพรเฟน, ไดโคลฟีแนค)\n• 🚨 สัญญาณอันตราย: ควรพบแพทย์ทันทีหากปวดศีรษะรุนแรงฉับพลัน, มีไข้สูง คอแข็ง, แขนขาอ่อนแรง หรือสายตาพร่ามัว`;
-    return { success: true, execution_mode: 'live', reply, response_type: 'information' };
-  }
 
   // Drug Interaction query
   if (/ยาตีกัน|ตีกัน|interaction|clash|conflict/i.test(lowerMsg)) {
@@ -497,46 +488,29 @@ export async function runAgentAnalysis(): Promise<AgentRunResponse> {
     const quota = await fetchUserQuota();
     const summary = generateLocalAgentSummary();
 
-    // Try to enhance with Gemini AI personalized advice
-    const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || 'AIzaSyAv0-3QihuuNsG9POJ_XWw3icteL3irdGg';
-    if (apiKey) {
-      try {
-        const store = useAppStore.getState();
-        const lang = store.profile.language || 'th';
-        const activeMeds = store.cabinet
-          .filter((c) => c.status === 'active')
-          .map((c) => getMedicine(c.medicineId)?.nameEn || c.medicineId)
-          .join(', ');
-        const diseases = store.profile.diseases.join(', ');
-        const allergies = store.profile.allergies.join(', ');
-        const criticalRows = summary.rows.filter((r) => r.status === 'critical' || r.status === 'needs_attention');
+    // Enhanced with Gemini AI via secure Firebase Cloud Functions
+    try {
+      const store = useAppStore.getState();
+      const lang = store.profile.language || 'th';
+      const activeMeds = store.cabinet
+        .filter((c) => c.status === 'active')
+        .map((c) => getMedicine(c.medicineId)?.nameEn || c.medicineId)
+        .join(', ');
+      const diseases = store.profile.diseases.join(', ');
+      const allergies = store.profile.allergies.join(', ');
+      const criticalRows = summary.rows.filter((r) => r.status === 'critical' || r.status === 'needs_attention');
 
-        const prompt = lang === 'en'
-          ? `You are MaCheck AI Care Agent. Provide a brief personalized safety summary (3-5 lines) for this patient profile:\n- Active Medications: ${activeMeds || 'None'}\n- Conditions: ${diseases || 'None'}\n- Allergies: ${allergies || 'None'}\n- Safety Findings: ${criticalRows.map((r) => r.finding).join('; ') || 'No critical issues found'}\nBe concise, professional. Do NOT prescribe or alter medications.`
-          : `คุณคือ MaCheck AI Care Agent สรุปความปลอดภัยของผู้ป่วยอย่างกระชับ (3-5 บรรทัด):\n- ยาที่ใช้อยู่: ${activeMeds || 'ไม่มี'}\n- โรคประจำตัว: ${diseases || 'ไม่มี'}\n- แพ้ยา: ${allergies || 'ไม่มี'}\n- ผลตรวจสำคัญ: ${criticalRows.map((r) => r.finding).join('; ') || 'ไม่พบปัญหาวิกฤต'}\nตอบกระชับ เป็นมืออาชีพ ห้ามสั่งยาหรือเปลี่ยนขนาดยา`;
+      const prompt = lang === 'en'
+        ? `You are MaCheck AI Care Agent. Provide a brief personalized safety summary (3-5 lines) for this patient profile:\n- Active Medications: ${activeMeds || 'None'}\n- Conditions: ${diseases || 'None'}\n- Allergies: ${allergies || 'None'}\n- Safety Findings: ${criticalRows.map((r) => r.finding).join('; ') || 'No critical issues found'}\nBe concise, professional. Do NOT prescribe or alter medications.`
+        : `คุณคือ MaCheck AI Care Agent สรุปความปลอดภัยของผู้ป่วยอย่างกระชับ (3-5 บรรทัด):\n- ยาที่ใช้อยู่: ${activeMeds || 'ไม่มี'}\n- โรคประจำตัว: ${diseases || 'ไม่มี'}\n- แพ้ยา: ${allergies || 'ไม่มี'}\n- ผลตรวจสำคัญ: ${criticalRows.map((r) => r.finding).join('; ') || 'ไม่พบปัญหาวิกฤต'}\nตอบกระชับ เป็นมืออาชีพ ห้ามสั่งยาหรือเปลี่ยนขนาดยา`;
 
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            }),
-          },
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          const aiAdvice = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (aiAdvice) {
-            summary.llmPersonalizedAdvice = aiAdvice;
-            summary.executionMode = 'live';
-          }
-        }
-      } catch (aiError) {
-        console.warn('[MaCheck Agent] Gemini AI enhancement failed, using local rules:', aiError);
+      const response = await callCallableFunction<{ text: string }>('chatAgent', { prompt });
+      if (response && response.text) {
+        summary.llmPersonalizedAdvice = response.text;
+        summary.executionMode = 'live';
       }
+    } catch (aiError) {
+      console.warn('[MaCheck Agent] Gemini AI enhancement failed, using local rules:', aiError);
     }
 
     return {

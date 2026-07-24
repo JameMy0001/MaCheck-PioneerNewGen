@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "285805120787",
+    "project_id": "gen-lang-client-0740402744",
+    "storage_bucket": "gen-lang-client-0740402744.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:285805120787:android:c757b36d6e5e6774701ee6",
+        "android_client_info": {
+          "package_name": "com.macheck.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "285805120787-86afra3iukaqvgs1fq2h87pv8ng7cih6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNhdepf_2QyScR9uFC5kxOkyrBNRdYx6M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "285805120787-86afra3iukaqvgs1fq2h87pv8ng7cih6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

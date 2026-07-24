@@ -294,6 +294,16 @@ def run_cpu_vs_gpu_benchmark(num_patients: int = 1000) -> Dict[str, Any]:
     print(f"\n--- Generating adherence dataset ({num_patients} patients)... ---")
     dataset = generate_synthetic_adherence_dataset(num_patients=num_patients, days=30)
     total_records = len(dataset)
+    
+    # Export Raw Data for GCP Storage
+    import csv
+    raw_csv_path = "adherence_raw.csv"
+    with open(raw_csv_path, "w", newline="", encoding="utf-8") as f:
+        if len(dataset) > 0:
+            writer = csv.DictWriter(f, fieldnames=dataset[0].keys())
+            writer.writeheader()
+            writer.writerows(dataset)
+    print(f"Exported Raw Dataset ({total_records} records) to {raw_csv_path}")
 
     # 1. Pure Python Baseline (CPU)
     start_cpu = time.time()

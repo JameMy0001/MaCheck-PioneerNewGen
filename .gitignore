@@ -40,3 +40,6 @@ tmp/
 
 # Backups of empty nested repository metadata
 .nested-git-backups/
+
+# Large data files
+platform/analytics/adherence_raw.csv
