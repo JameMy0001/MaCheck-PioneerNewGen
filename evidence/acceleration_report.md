@@ -20,11 +20,10 @@
 
 | Engine Mode | Execution Time | Speedup Factor |
 |-------------|----------------|----------------|
-| **Pure Python CPU (Baseline)** | 2,145.30 ms | 1.0x |
-| **Pandas CPU DataFrame** | 412.50 ms | 5.2x |
-| **NVIDIA cuDF (GPU DataFrame)** | **12.45 ms** | **172.3x** |
+| **Pandas CPU DataFrame (Baseline)** | ~105.82 ms | 1.0x |
+| **NVIDIA cuDF (GPU DataFrame)** | **12.45 ms** | **8.5x** |
 
 ### บทสรุปประสิทธิภาพ (Impact of Acceleration)
-- **Time-to-Insight:** ระยะเวลาในการรับรู้ว่า "ใครคือผู้ป่วยวิกฤตที่สุดในตอนนี้" ลดลงจากครึ่งวินาทีเหลือเพียงเสี้ยววินาที (**12.45 มิลลิวินาที**) 
-- **Scale & Cost Efficiency:** การที่ GPU ทำงานเร็วกว่า CPU ถึง **172 เท่า** หมายความว่าในการขยายระบบสเกลระดับชาติ (National Level) ที่มีผู้ป่วยนับล้านคน เราจะสามารถประมวลผลให้เสร็จสิ้นได้รวดเร็วกว่า และใช้เวลาเช่า Cloud Compute (Duration) น้อยลง ส่งผลให้ประหยัดต้นทุน (Cost-effective) กว่าในระยะยาว
-- **Responsiveness:** ตอบโจทย์ระบบแจ้งเตือนแบบ Real-time (Push Notifications) หากผู้ป่วยลืมกินยา ระบบหลังบ้านสามารถสรุปผลกระทบและปรับความเสี่ยงของคนไข้ได้ทันทีแบบไม่มี Bottleneck
+- **Zero Code-change:** ด้วยเทคโนโลยี `cudf.pandas` ระบบสามารถทำงานบน GPU ได้ทันทีโดยไม่ต้องเปลี่ยนโครงสร้างโค้ด Pandas เดิม
+- **8.5x Processing Speedup:** ระยะเวลาในการคำนวณลดลงถึง **8.5 เท่า** เมื่อเทียบกับการใช้ Pandas บน CPU ปกติ 
+- **Scale & Cost Efficiency:** ในสเกลข้อมูลระดับชาติที่มีจำนวนผู้ป่วยนับล้านราย การใช้ GPU Acceleration ช่วยลด Bottleneck ของระบบ ทำให้วิเคราะห์ Priority Queue ได้ทันท่วงที (Real-time Decision Support) และลดเวลาในการเช่า Compute Engine ลงอย่างมีนัยสำคัญ
